@@ -353,11 +353,12 @@ async fn queued_transfer_can_be_cancelled_and_invalid_requests_queue_nothing() {
                 "small.txt",
                 false,
             ),
+            // A name with a slash is not a single item, so the batch is refused.
             request(
                 local(&source),
-                local(&source),
+                remote("orbit-a", ""),
                 Mode::Copy,
-                "small.txt",
+                "nested/small.txt",
                 false,
             ),
         ])
