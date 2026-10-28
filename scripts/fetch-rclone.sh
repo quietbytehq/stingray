@@ -32,5 +32,5 @@ fi
 
 unzip -q -j "$WORK/$ZIP" "rclone-${VERSION}-linux-${ARCH}/rclone" -d "$WORK"
 mkdir -p "$OUT_DIR"
-install -m 0755 "$WORK/rclone" "$OUT_DIR/rclone-${TRIPLE}"
-echo "Installed $OUT_DIR/rclone-${TRIPLE}"
+install -m 0755 "$WORK/rclone" "$OUT_DIR/stingray-rclone-${TRIPLE}"
+echo "Installed $OUT_DIR/stingray-rclone-${TRIPLE}"

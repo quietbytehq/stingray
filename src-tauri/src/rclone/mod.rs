@@ -22,7 +22,7 @@ pub fn spec_for(paths: &AppPaths, settings: &Settings) -> RcdSpec {
         exe_dir.as_deref(),
         path_env.as_deref(),
     )
-    .unwrap_or_else(|_| exe_dir.unwrap_or_default().join(resolve::binary_name()));
+    .unwrap_or_else(|_| exe_dir.unwrap_or_default().join(resolve::sidecar_name()));
     RcdSpec {
         binary,
         config_path: paths.rclone_config(),

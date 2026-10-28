@@ -44,8 +44,8 @@ try {
     if (-not $exe) { throw "rclone.exe was not found in $Zip." }
 
     New-Item -ItemType Directory -Path $OutDir -Force | Out-Null
-    Copy-Item -Path $exe.FullName -Destination (Join-Path $OutDir "rclone-$Triple.exe") -Force
-    Write-Host "Installed $(Join-Path $OutDir "rclone-$Triple.exe")"
+    Copy-Item -Path $exe.FullName -Destination (Join-Path $OutDir "stingray-rclone-$Triple.exe") -Force
+    Write-Host "Installed $(Join-Path $OutDir "stingray-rclone-$Triple.exe")"
 }
 finally {
     Remove-Item -Recurse -Force $Work -ErrorAction SilentlyContinue

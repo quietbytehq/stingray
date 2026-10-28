@@ -34,7 +34,7 @@ jobs:
       - run: bash scripts/fetch-rclone.sh
       - name: Rust tests
         env:
-          STINGRAY_TEST_RCLONE: ${{ github.workspace }}/src-tauri/binaries/rclone-x86_64-unknown-linux-gnu
+          STINGRAY_TEST_RCLONE: ${{ github.workspace }}/src-tauri/binaries/stingray-rclone-x86_64-unknown-linux-gnu
         run: cargo test --manifest-path src-tauri/Cargo.toml
 
   linux:

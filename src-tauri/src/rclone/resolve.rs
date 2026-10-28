@@ -12,6 +12,15 @@ pub fn binary_name() -> &'static str {
     }
 }
 
+/// Name of the rclone copy bundled with Stingray, distinct from any other package's /usr/bin/rclone.
+pub fn sidecar_name() -> &'static str {
+    if cfg!(windows) {
+        "stingray-rclone.exe"
+    } else {
+        "stingray-rclone"
+    }
+}
+
 /// Picks the rclone binary to run, in order:
 /// 1. the advanced override from settings,
 /// 2. the sidecar that ships next to the Stingray executable,
@@ -33,7 +42,7 @@ pub fn resolve_binary(
     }
 
     if let Some(dir) = exe_dir {
-        let sidecar = dir.join(binary_name());
+        let sidecar = dir.join(sidecar_name());
         if sidecar.is_file() {
             return Ok(sidecar);
         }
@@ -66,7 +75,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let custom = touch(dir.path(), "my-rclone");
         let sidecar_dir = tempfile::tempdir().unwrap();
-        touch(sidecar_dir.path(), binary_name());
+        touch(sidecar_dir.path(), sidecar_name());
         let got = resolve_binary(Some(&custom), Some(sidecar_dir.path()), None).unwrap();
         assert_eq!(got, custom);
     }
@@ -82,7 +91,7 @@ mod tests {
     #[test]
     fn sidecar_beats_path() {
         let sidecar_dir = tempfile::tempdir().unwrap();
-        let sidecar = touch(sidecar_dir.path(), binary_name());
+        let sidecar = touch(sidecar_dir.path(), sidecar_name());
         let path_dir = tempfile::tempdir().unwrap();
         touch(path_dir.path(), binary_name());
         let path_env = std::env::join_paths([path_dir.path()]).unwrap();
