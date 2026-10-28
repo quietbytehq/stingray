@@ -1,0 +1,40 @@
+{
+  "name": "stingray-file-manager",
+  "version": "1.0.0",
+  "description": "Stingray File Manager: local, cloud and network drives in one window",
+  "type": "module",
+  "scripts": {
+    "dev": "vite dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "prepare": "svelte-kit sync || echo ''",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
+    "tauri": "tauri",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fetch:rclone": "bash scripts/fetch-rclone.sh",
+    "fetch:rclone:windows": "powershell -ExecutionPolicy Bypass -File scripts/fetch-rclone.ps1",
+    "bundle:rename": "node scripts/rename-bundles.mjs",
+    "bundle:linux": "npm run fetch:rclone && tauri build --bundles appimage,deb && npm run bundle:rename",
+    "bundle:windows": "npm run fetch:rclone:windows && tauri build --bundles msi && npm run bundle:rename"
+  },
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@lucide/svelte": "^1.61.0",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.8.3",
+    "@tauri-apps/plugin-opener": "^2"
+  },
+  "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.10",
+    "@sveltejs/kit": "^2.65.1",
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@tauri-apps/cli": "^2",
+    "svelte": "^5.56.3",
+    "svelte-check": "^4.6.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "vitest": "^5.0.5"
+  }
+}

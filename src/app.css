@@ -1,0 +1,218 @@
+/*
+ * Inter (SIL Open Font License 1.1, see static/fonts/LICENSE-Inter.txt) is bundled so the UI
+ * looks the same on every platform. It is the fallback right after SF Pro, which only macOS has.
+ * The variable file carries weights 100-900 and the optical size axis, so the wordmark gets the
+ * display cut automatically at large sizes.
+ */
+@font-face {
+  font-family: "Inter";
+  src: url("/fonts/InterVariable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/*
+ * Design tokens for Stingray. The accent pair comes from the logo: violet into magenta.
+ * Light is the default. Dark applies under the system preference unless the user forces light,
+ * and also when the user forces dark via data-theme.
+ */
+:root {
+  --font-ui: -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI Variable", "Segoe UI",
+    Roboto, Ubuntu, sans-serif;
+
+  --radius-window: 12px;
+  --radius-card: 12px;
+  --radius-control: 8px;
+
+  --status-synced: #34c759;
+  --status-syncing: #0a84ff;
+  --status-disconnected: #ff3b30;
+
+  --accent: #8a3ffc;
+  --accent-2: #e81cc4;
+  --accent-gradient: linear-gradient(135deg, #8a3ffc 0%, #b62cf0 55%, #e81cc4 100%);
+  --status-offline: #ff3b30;
+  --status-idle: rgba(142, 142, 147, 0.55);
+  --window-bg: #f5f5f7;
+  --sidebar-bg: rgba(236, 236, 240, 0.72);
+  --panel-bg: rgba(255, 255, 255, 0.72);
+  --control-bg: rgba(118, 118, 128, 0.12);
+  --control-bg-hover: rgba(118, 118, 128, 0.2);
+  --sidebar-selected: rgba(138, 63, 252, 0.14);
+  --separator: rgba(60, 60, 67, 0.18);
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --splash-ink: #1d1d1f;
+  --splash-muted: rgba(29, 29, 31, 0.6);
+  --splash-bg: radial-gradient(circle at 30% 25%, #ffffff 0%, #f1ecfb 60%, #e9e0f8 100%);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --window-bg: #1c1c1e;
+    --sidebar-bg: rgba(44, 44, 46, 0.72);
+    --panel-bg: rgba(44, 44, 46, 0.7);
+    --control-bg: rgba(118, 118, 128, 0.24);
+    --control-bg-hover: rgba(118, 118, 128, 0.34);
+    --sidebar-selected: rgba(160, 98, 255, 0.3);
+    --separator: rgba(84, 84, 88, 0.6);
+    --text-primary: #f5f5f7;
+    --text-secondary: #98989f;
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+    --splash-ink: #f5f5f7;
+    --splash-muted: rgba(245, 245, 247, 0.6);
+    --splash-bg: radial-gradient(circle at 30% 25%, #2b2140 0%, #17131f 70%, #110e17 100%);
+  }
+}
+
+:root[data-theme="dark"] {
+  --window-bg: #1c1c1e;
+  --sidebar-bg: rgba(44, 44, 46, 0.72);
+  --panel-bg: rgba(44, 44, 46, 0.7);
+  --control-bg: rgba(118, 118, 128, 0.24);
+  --control-bg-hover: rgba(118, 118, 128, 0.34);
+  --sidebar-selected: rgba(160, 98, 255, 0.3);
+  --separator: rgba(84, 84, 88, 0.6);
+  --text-primary: #f5f5f7;
+  --text-secondary: #98989f;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --splash-ink: #f5f5f7;
+  --splash-muted: rgba(245, 245, 247, 0.6);
+  --splash-bg: radial-gradient(circle at 30% 25%, #2b2140 0%, #17131f 70%, #110e17 100%);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--window-bg);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button,
+input,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+/* Native radios, checkboxes and progress bars take the app accent instead of the platform's. */
+input[type="radio"],
+input[type="checkbox"],
+progress {
+  accent-color: var(--accent);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * Toolbars hold ToolbarButton components. When the toolbar is narrow, labels hide and the
+ * buttons become icon-only; their title attribute then serves as the tooltip.
+ */
+.toolbar {
+  container-type: inline-size;
+}
+@container (max-width: 720px) {
+  .toolbar .tb-label {
+    display: none;
+  }
+  .toolbar .tb {
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+}
+
+/* Buttons and links that carry an icon next to their text. */
+.with-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Shared controls: cards and buttons, used by the main window and every dialog. */
+.card {
+  background: var(--panel-bg);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+}
+.button {
+  appearance: none;
+  border: none;
+  border-radius: var(--radius-control);
+  background: var(--control-bg);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-weight: 500;
+}
+.button:hover {
+  background: var(--control-bg-hover);
+}
+.button.primary {
+  background: var(--accent-gradient);
+  color: #fff;
+}
+.button.primary:hover {
+  filter: brightness(1.08);
+}
+.button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.button.destructive {
+  color: var(--status-disconnected);
+}
+.button.destructive-fill {
+  background: var(--status-disconnected);
+  color: #fff;
+}
+a.button {
+  text-decoration: none;
+  display: inline-block;
+}
+
+:root {
+  --page-fill: #ffffff;
+  --page-fold: #ececf0;
+  --page-edge: rgba(0, 0, 0, 0.14);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page-fill: #e9e9ee;
+    --page-fold: #c9c9d1;
+    --page-edge: rgba(0, 0, 0, 0.4);
+  }
+}
+:root[data-theme="dark"] {
+  --page-fill: #e9e9ee;
+  --page-fold: #c9c9d1;
+  --page-edge: rgba(0, 0, 0, 0.4);
+}
