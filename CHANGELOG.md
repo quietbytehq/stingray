@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 (unreleased)
+
+- New splash: a short clip of the stingray swimming, with the name fading in over it. Plays for six
+  seconds on first launch and after updates, about three seconds otherwise; click or press any key
+  to skip. Reduced motion, or a system that can't play the clip, shows the logo instead.
+
 ## 1.3.0 (unreleased)
 
 - About page in Settings, with the version, QuietByte's website and the project links.

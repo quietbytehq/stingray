@@ -1,31 +1,33 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { api } from "$lib/api";
-  import { FADE_OUT_MS, REDUCED_HOLD_MS, phaseTiming, timeline, type Timeline } from "$lib/splash/timeline";
-  import { applyTheme } from "$lib/util/theme";
+  import { FADE_OUT_MS, REDUCED_HOLD_MS } from "$lib/splash/timeline";
 
   /**
-   * Stingray's opening: the ray glides in from the lower right along its own heading, the
-   * wordmark settles under it, then the tagline. Click or press any key to skip.
-   * Phases reuse the shared timeline: "ring" is the glide, "cloud" the light sweep across the ray.
+   * Stingray's opening: a short clip of the stingray swimming, with the name settling in over it.
+   * Click or press any key to skip. With reduced motion, a still frame shows briefly instead. If the
+   * clip can't play (a missing video codec, say), the still frame shows and the app opens as usual.
    */
+  /** Longest the splash may stay up, whatever happens to the clip. */
+  const SAFETY_MS = 8000;
+  /** The clip is longer than an intro should be; it is stopped here, fading out. */
+  const CLIP_MS = 6000;
+  /** The short intro on later launches stops the clip early. */
+  const SHORT_MS = 3200;
+
   let still = $state(false);
   let leaving = $state(false);
-  let finished = false;
-  let line = $state<Timeline | null>(null);
+  let failed = $state(false);
+  let showName = $state(false);
   let version = $state("");
-
-  const glide = $derived(line ? phaseTiming(line, "ring") : [0, 0]);
-  const sweep = $derived(line ? phaseTiming(line, "cloud") : [0, 0]);
-  const word = $derived(line ? phaseTiming(line, "wordmark") : [0, 0]);
-  const tag = $derived(line ? phaseTiming(line, "tagline") : [0, 0]);
-  const foot = $derived(line ? phaseTiming(line, "footer") : [0, 0]);
+  let finished = false;
+  let video: HTMLVideoElement | undefined = $state();
 
   async function finish() {
     if (finished) return;
     finished = true;
     leaving = true;
-    if (!still) await new Promise((resolve) => window.setTimeout(resolve, FADE_OUT_MS));
+    await new Promise((resolve) => window.setTimeout(resolve, still ? 0 : FADE_OUT_MS));
     try {
       await api.splashFinished();
     } catch {
@@ -34,21 +36,29 @@
   }
 
   onMount(() => {
-    void api.getSettings().then((s) => applyTheme(s.theme)).catch(() => {});
     void api.appInfo().then((info) => (version = info.version)).catch(() => {});
     still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let timer = 0;
-    void api
-      .getSplashPlan()
-      .then((plan) => (plan === "short" ? "short" : "full"))
-      .catch(() => "full" as const)
-      .then((which) => {
-        if (finished) return;
-        line = timeline(which);
-        timer = window.setTimeout(finish, still ? REDUCED_HOLD_MS : line.sequenceMs);
-      });
-    return () => window.clearTimeout(timer);
+    const timers: number[] = [window.setTimeout(finish, SAFETY_MS)];
+    const nameAt = window.setTimeout(() => (showName = true), still ? 0 : 1800);
+    timers.push(nameAt);
+    if (still) {
+      timers.push(window.setTimeout(finish, REDUCED_HOLD_MS));
+    } else {
+      void api
+        .getSplashPlan()
+        .then((plan) => {
+          if (plan === "short") timers.push(window.setTimeout(finish, SHORT_MS));
+        })
+        .catch(() => {});
+    }
+    return () => timers.forEach((t) => window.clearTimeout(t));
   });
+
+  function videoFailed() {
+    failed = true;
+    showName = true;
+    window.setTimeout(finish, REDUCED_HOLD_MS);
+  }
 </script>
 
 <svelte:head>
@@ -64,9 +74,7 @@
 
 <div
   class="splash"
-  class:still
   class:leaving
-  class:ready={line !== null}
   role="button"
   tabindex="0"
   aria-label="Skip intro"
@@ -75,167 +83,109 @@
     event.preventDefault();
     void finish();
   }}
+  style:transition-duration="{FADE_OUT_MS}ms"
 >
-  <div class="content" style:transition-duration="{FADE_OUT_MS}ms">
-    <div class="ray" style:animation-delay="{glide[0]}ms" style:animation-duration="{glide[1]}ms">
-      <img class="swim" src="/stingray.png" alt="" width="190" height="190" />
-      <span class="sheen" style:animation-delay="{sweep[0]}ms" style:animation-duration="{sweep[1]}ms"></span>
-    </div>
-    <h1 style:animation-delay="{word[0]}ms" style:animation-duration="{word[1]}ms">Stingray</h1>
-    <p class="tagline" style:animation-delay="{tag[0]}ms" style:animation-duration="{tag[1]}ms">
-      Your files, your clouds, your servers. One window.
-    </p>
-    <p class="footer" style:animation-delay="{foot[0]}ms" style:animation-duration="{foot[1]}ms">
-      {version ? `Version ${version}` : ""} · QuietByte
-    </p>
+  {#if still || failed}
+    <img class="frame still" src="/stingray.png" alt="" />
+  {:else}
+    <!-- svelte-ignore a11y_media_has_caption -->
+    <video
+      bind:this={video}
+      class="frame"
+      autoplay
+      muted
+      playsinline
+      onended={finish}
+      onerror={videoFailed}
+      ontimeupdate={() => {
+        if (video && video.currentTime * 1000 >= CLIP_MS) void finish();
+      }}
+    >
+      <source src="/splash.mp4" type="video/mp4" onerror={videoFailed} />
+    </video>
+  {/if}
+  <div class="name" class:shown={showName}>
+    <h1>Stingray</h1>
+    <p>Your files, your clouds, your servers. One window.</p>
   </div>
+  <p class="footer" class:shown={showName}>{version ? `Version ${version} · ` : ""}QuietByte</p>
 </div>
 
 <style>
   .splash {
     position: fixed;
     inset: 0;
-    border-radius: 22px;
-    background: var(--splash-bg);
-    color: var(--splash-ink);
-    display: grid;
-    place-items: center;
+    border-radius: 18px;
     overflow: hidden;
+    background: #1c1828;
+    color: #fff;
     cursor: default;
     outline: none;
-  }
-  .content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
     transition-property: opacity;
   }
-  .leaving .content {
+  .splash.leaving {
     opacity: 0;
   }
-  .ray {
-    position: relative;
-    width: 190px;
-    height: 190px;
-    opacity: 0;
-  }
-  .ray img {
-    display: block;
-  }
-  /*
-   * Swimming: the ray rocks around its own body line (head at top left, tail at bottom right), so
-   * one wing dips while the other lifts, and rises and sinks a little with each stroke.
-   */
-  .ready .swim {
-    animation: swim 1.6s ease-in-out infinite;
-    transform-origin: 45% 45%;
-  }
-  @keyframes swim {
-    0% {
-      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(0);
-    }
-    25% {
-      transform: perspective(500px) rotate3d(1, -1, 0, 22deg) translateY(-4px) scale(0.98);
-    }
-    50% {
-      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(-6px);
-    }
-    75% {
-      transform: perspective(500px) rotate3d(1, -1, 0, -22deg) translateY(-3px) scale(0.98);
-    }
-    100% {
-      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(0);
-    }
-  }
-  /* A band of light passes over the ray once it has arrived, clipped to its shape by the mask. */
-  .sheen {
-    display: none;
+  .frame {
     position: absolute;
     inset: 0;
-    background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
-    transform: translateX(-120%);
-    opacity: 0;
-    -webkit-mask: url(/stingray.png) center / contain no-repeat;
-    mask: url(/stingray.png) center / contain no-repeat;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
   }
-  h1 {
-    margin: 6px 0 0;
-    font-size: 40px;
-    font-weight: 700;
+  .frame.still {
+    object-fit: contain;
+    padding: 40px 0 90px;
+    box-sizing: border-box;
+  }
+  /* A soft shade at the bottom keeps the name readable over the clip. */
+  .splash::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0 0;
+    height: 45%;
+    background: linear-gradient(to top, rgba(18, 14, 28, 0.85), transparent);
+    pointer-events: none;
+  }
+  .name {
+    position: absolute;
+    left: 28px;
+    bottom: 34px;
+    z-index: 1;
+    opacity: 0;
+    transform: translateY(8px);
+    transition:
+      opacity 0.7s ease,
+      transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .name h1 {
+    margin: 0;
+    font-size: 38px;
+    font-weight: 750;
     letter-spacing: -0.035em;
-    background: linear-gradient(120deg, #8a3ffc, #e81cc4);
+    background: linear-gradient(120deg, #b98bff, #ff5ad9);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    opacity: 0;
   }
-  .tagline {
-    margin: 6px 0 0;
+  .name p {
+    margin: 2px 0 0;
     font-size: 13px;
-    color: var(--splash-muted);
-    opacity: 0;
+    color: rgba(255, 255, 255, 0.75);
   }
   .footer {
-    margin: 26px 0 0;
+    position: absolute;
+    right: 22px;
+    bottom: 16px;
+    z-index: 1;
+    margin: 0;
     font-size: 11px;
-    color: var(--splash-muted);
+    color: rgba(255, 255, 255, 0.55);
     opacity: 0;
+    transition: opacity 0.7s ease 0.2s;
   }
-  .ready .ray {
-    animation-name: glide;
-    animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-    animation-fill-mode: forwards;
-  }
-  .ready .sheen {
-    animation-name: sheen;
-    animation-timing-function: ease-in-out;
-    animation-fill-mode: forwards;
-  }
-  .ready h1,
-  .ready .tagline,
-  .ready .footer {
-    animation-name: rise;
-    animation-timing-function: cubic-bezier(0.2, 0.8, 0.2, 1);
-    animation-fill-mode: forwards;
-  }
-  @keyframes glide {
-    from {
-      opacity: 0;
-      transform: translate(70px, 60px) rotate(8deg) scale(0.82);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-  @keyframes sheen {
-    from {
-      opacity: 1;
-      transform: translateX(-120%);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(120%);
-    }
-  }
-  @keyframes rise {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
-    }
-    to {
-      opacity: 1;
-      transform: none;
-    }
-  }
-  .still .swim {
-    animation: none !important;
-  }
-  .still .ray,
-  .still h1,
-  .still .tagline,
-  .still .footer {
-    animation: none !important;
+  .shown {
     opacity: 1;
+    transform: none;
   }
 </style>
