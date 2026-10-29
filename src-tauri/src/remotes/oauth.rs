@@ -93,3 +93,35 @@ pub async fn cancel(client: &RcClient) -> AppResult<()> {
         .await
         .map(|_| ())
 }
+
+/// Signs an existing remote in again through the browser, keeping its name and settings.
+/// Used when a sign-in has expired or been revoked.
+pub async fn reconnect_with_browser(client: &RcClient, name: &str, on_url: impl Fn(&str)) -> AppResult<()> {
+    let body = json!({
+        "name": name,
+        "parameters": { "config_refresh_token": "true" },
+        "opt": { "obscure": true },
+    });
+    let update = client.call_value_with_timeout("config/update", &body, SIGN_IN_TIMEOUT);
+    tokio::pin!(update);
+    let mut ticker = tokio::time::interval(URL_POLL_INTERVAL);
+    let mut announced = false;
+    loop {
+        tokio::select! {
+            result = &mut update => {
+                return result.map(|_| ()).map_err(|err| if err.kind == ErrorKind::Rclone {
+                    AppError::new(ErrorKind::Rclone, text::SIGN_IN_FAILED)
+                        .with_details(err.details.unwrap_or(err.message))
+                } else {
+                    err
+                });
+            }
+            _ = ticker.tick(), if !announced => {
+                if let Some(url) = sign_in_url(client).await {
+                    on_url(&url);
+                    announced = true;
+                }
+            }
+        }
+    }
+}

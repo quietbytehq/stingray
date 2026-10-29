@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 /// How long a connection test may take before we call it a failure.
-pub const TEST_TIMEOUT: Duration = Duration::from_secs(25);
+pub const TEST_TIMEOUT: Duration = Duration::from_secs(45);
 
 #[derive(Deserialize)]
 struct RemoteNames {
@@ -50,6 +50,11 @@ pub async fn exists(client: &RcClient, name: &str) -> AppResult<bool> {
 }
 
 /// Returns every key of a remote's section, secrets included. Internal use only.
+/// The connection's stored settings, including its sign-in token. Never send this to the UI.
+pub async fn raw_config(client: &RcClient, name: &str) -> AppResult<BTreeMap<String, String>> {
+    get_raw(client, name).await
+}
+
 async fn get_raw(client: &RcClient, name: &str) -> AppResult<BTreeMap<String, String>> {
     let value: Value = client.call("config/get", &json!({ "name": name })).await?;
     let object = value.as_object().cloned().unwrap_or_default();
@@ -231,15 +236,23 @@ pub async fn test(client: &RcClient, name: &str) -> AppResult<ConnectionTest> {
     Ok(match result {
         Ok(_) => ConnectionTest {
             ok: true,
+            slow: false,
             message: text::TEST_OK.to_owned(),
             details: None,
         },
         Err(err) if err.kind == ErrorKind::NotRunning => return Err(err),
+        Err(err) if err.kind == ErrorKind::Timeout => ConnectionTest {
+            ok: false,
+            slow: true,
+            message: text::ENGINE_SLOW.to_owned(),
+            details: err.details,
+        },
         Err(err) => {
             // The engine's raw text was already moved into details by the client.
             let raw = err.details.unwrap_or(err.message);
             ConnectionTest {
                 ok: false,
+                slow: false,
                 message: text::connection_failed(&raw).to_owned(),
                 details: Some(raw),
             }

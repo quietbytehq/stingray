@@ -121,6 +121,12 @@ pub async fn start_browser_sign_in(
         let _ = app.emit(SIGN_IN_URL_EVENT, url);
     })
     .await?;
+    if provider.rclone_type == "onedrive" {
+        // rclone picks the first library it is given; switch to the person's own OneDrive.
+        if let Err(err) = super::onedrive::use_main_library(&client, &name).await {
+            eprintln!("Stingray: couldn't select the main OneDrive library: {}", err.message);
+        }
+    }
     health.forget(&name);
     Ok(summary(provider, &name, &std::collections::BTreeMap::new()))
 }
@@ -202,4 +208,41 @@ pub async fn account_info(
     supervisor: State<'_, Supervisor>,
 ) -> AppResult<store::AccountInfo> {
     store::account_info(&supervisor.client()?, &name).await
+}
+
+/// Signs an existing cloud account in again through the browser.
+#[tauri::command]
+pub async fn reconnect_remote(
+    name: String,
+    app: AppHandle,
+    supervisor: State<'_, Supervisor>,
+    health: State<'_, HealthStore>,
+) -> AppResult<()> {
+    let client = supervisor.client()?;
+    oauth::reconnect_with_browser(&client, &name, |url| {
+        let _ = app.emit(SIGN_IN_URL_EVENT, url);
+    })
+    .await?;
+    health.forget(&name);
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn onedrive_libraries(
+    name: String,
+    supervisor: State<'_, Supervisor>,
+) -> AppResult<Vec<super::onedrive::Library>> {
+    super::onedrive::libraries(&supervisor.client()?, &name).await
+}
+
+#[tauri::command]
+pub async fn set_onedrive_library(
+    name: String,
+    id: String,
+    supervisor: State<'_, Supervisor>,
+    health: State<'_, HealthStore>,
+) -> AppResult<()> {
+    super::onedrive::set_library(&supervisor.client()?, &name, &id).await?;
+    health.forget(&name);
+    Ok(())
 }

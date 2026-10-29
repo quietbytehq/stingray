@@ -3,6 +3,7 @@
   import type { NfsShareView, Place, RemoteSummary } from "$lib/api/types";
   import { drives, CLOUD_PROVIDERS, CLOUD_TITLES, type CloudProvider, type Light } from "$lib/stores/drives.svelte";
   import BrandIcon from "./BrandIcon.svelte";
+  import FileIcon, { type SpecialFolder } from "./FileIcon.svelte";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { sameLocation, type Location } from "$lib/util/location";
   import {
@@ -58,6 +59,7 @@
     connected: "Connected",
     offline: "Not connected",
     checking: "Checking connection",
+    slow: "Connected, but slow to respond",
     none: "Not set up",
   };
 
@@ -107,7 +109,7 @@
 
 <aside class="sidebar" aria-label="Locations">
   <div class="brand">
-    <img src="/stingray.png" alt="" width="34" height="34" />
+    <img src="/stingray.png" alt="" width="50" height="50" />
     <span>Stingray</span>
     <button type="button" class="gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => onSettings()}>
       <Settings size={16} strokeWidth={1.75} aria-hidden="true" />
@@ -117,7 +119,6 @@
   <nav>
     <h2>Places</h2>
     {#each places as place (place.path)}
-      {@const Icon = PLACE_ICONS[place.kind]}
       {@const loc = { kind: "local" as const, path: place.path }}
       <button
         type="button"
@@ -127,7 +128,7 @@
         data-drop={place.kind === "trash" ? undefined : dropKey(loc)}
         onclick={() => onNavigate(loc, place.label)}
       >
-        <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+        <span class="place-icon"><FileIcon name="" isDir={true} size={20} special={place.kind as SpecialFolder} /></span>
         <span class="label">{place.label}</span>
       </button>
     {/each}
@@ -258,8 +259,8 @@
     align-items: center;
     gap: 9px;
     padding: 2px 4px 8px 6px;
-    font-weight: 700;
-    font-size: 18px;
+    font-weight: 750;
+    font-size: 22px;
     letter-spacing: -0.02em;
   }
   .brand img {
@@ -292,6 +293,12 @@
   h2.with-action {
     display: flex;
     align-items: center;
+  }
+  .place-icon {
+    display: inline-grid;
+    width: 20px;
+    height: 20px;
+    flex: none;
   }
   .faded {
     display: inline-grid;
@@ -376,6 +383,9 @@
   .dot.checking {
     background: var(--status-offline);
     animation: pulse 1.2s ease-in-out infinite;
+  }
+  .dot.slow {
+    background: #ff9f0a;
   }
   .dot.none {
     background: var(--status-idle);

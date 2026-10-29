@@ -7,9 +7,10 @@ import { settings } from "$lib/stores/settings.svelte";
  * - "connected": set up and reachable (green)
  * - "offline": set up but not reachable right now, or the sign-in expired (red)
  * - "checking": set up, check in progress (red until it answers, drawn pulsing)
+ * - "slow": set up and answering, but too slowly to finish a check (amber)
  * - "none": not set up yet (grey)
  */
-export type Light = "connected" | "offline" | "checking" | "none";
+export type Light = "connected" | "offline" | "checking" | "slow" | "none";
 
 /** The three cloud services with a fixed place in the sidebar, in order. */
 export const CLOUD_PROVIDERS = ["drive", "onedrive", "dropbox"] as const;
@@ -103,7 +104,7 @@ class DriveStore {
     if (this.lights[name] !== "connected") this.lights[name] = "checking";
     try {
       const result = await api.testRemote(name);
-      this.lights[name] = result.ok ? "connected" : "offline";
+      this.lights[name] = result.ok ? "connected" : result.slow ? "slow" : "offline";
     } catch {
       this.lights[name] = "offline";
     }

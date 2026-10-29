@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { api, asAppError } from "$lib/api";
-  import type { AppError, ProviderDef, RemoteForm, RemoteSummary, Theme } from "$lib/api/types";
+  import type { AppError, OneDriveLibrary, ProviderDef, RemoteForm, RemoteSummary, Theme } from "$lib/api/types";
+  import { onSignInUrl } from "$lib/api";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { drives, BADGE_COLORS, CLOUD_PROVIDERS, CLOUD_TITLES } from "$lib/stores/drives.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import { formatBytes } from "$lib/util/format";
@@ -38,6 +40,56 @@
     const provider = drives.provider(id);
     if (provider) wizard = { provider, existing: null };
     else error = { kind: "notRunning", message: "The storage engine is still starting. Try again in a moment." } as AppError;
+  }
+
+  const BROWSER = ["drive", "onedrive", "dropbox"];
+  /** Connection currently waiting for the browser sign-in, with its sign-in link once known. */
+  let signingIn = $state<{ name: string; url: string | null } | null>(null);
+
+  /** Cloud accounts: run the browser sign-in again, keeping the account's name and settings. */
+  async function signInAgain(remote: RemoteSummary) {
+    signingIn = { name: remote.name, url: null };
+    error = null;
+    const stop = await onSignInUrl((url) => {
+      if (signingIn) signingIn.url = url;
+      void openUrl(url).catch(() => {});
+    });
+    try {
+      await api.reconnectRemote(remote.name);
+      await drives.refresh();
+    } catch (err) {
+      error = asAppError(err);
+    } finally {
+      stop();
+      signingIn = null;
+    }
+  }
+
+  async function cancelSignIn() {
+    await api.cancelBrowserSignIn().catch(() => {});
+  }
+
+  /** OneDrive: libraries the account can open, loaded when asked for. */
+  let libraries = $state<Record<string, OneDriveLibrary[] | "loading">>({});
+
+  async function loadLibraries(remote: RemoteSummary) {
+    libraries[remote.name] = "loading";
+    try {
+      libraries[remote.name] = await api.onedriveLibraries(remote.name);
+    } catch (err) {
+      delete libraries[remote.name];
+      error = asAppError(err);
+    }
+  }
+
+  async function chooseLibrary(remote: RemoteSummary, id: string) {
+    try {
+      await api.setOnedriveLibrary(remote.name, id);
+      await loadLibraries(remote);
+      await drives.refresh();
+    } catch (err) {
+      error = asAppError(err);
+    }
   }
 
   async function reconnect(remote: RemoteSummary) {
@@ -119,10 +171,50 @@
       </div>
     </div>
     <div class="row-actions">
-      <button type="button" class="button" onclick={() => void reconnect(remote)}>Sign in again</button>
-      <button type="button" class="button destructive" onclick={() => void remove(remote)}>Remove</button>
+      {#if signingIn?.name === remote.name}
+        <span class="waiting">Waiting for your browser…</span>
+        {#if signingIn.url}<a class="link" href={signingIn.url} target="_blank" rel="noopener">Open sign-in page</a>{/if}
+        <button type="button" class="button" onclick={() => void cancelSignIn()}>Cancel</button>
+      {:else}
+        <button
+          type="button"
+          class="button"
+          disabled={signingIn !== null}
+          onclick={() => void (BROWSER.includes(remote.providerId ?? "") ? signInAgain(remote) : reconnect(remote))}
+        >Sign in again</button>
+        {#if remote.providerId === "drive"}
+          <button type="button" class="button" onclick={() => void reconnect(remote)}>Edit settings</button>
+        {/if}
+        <button type="button" class="button destructive" onclick={() => void remove(remote)}>Remove</button>
+      {/if}
     </div>
   </div>
+  {#if remote.providerId === "onedrive"}
+    {@const libs = libraries[remote.name]}
+    <div class="library">
+      {#if libs === undefined}
+        <button type="button" class="linkish" onclick={() => void loadLibraries(remote)}>Choose which OneDrive library to open…</button>
+      {:else if libs === "loading"}
+        <span class="waiting">Asking Microsoft for your libraries…</span>
+      {:else}
+        <label>
+          Library
+          <select onchange={(e) => void chooseLibrary(remote, (e.currentTarget as HTMLSelectElement).value)}>
+            {#each libs as lib (lib.id)}
+              <option value={lib.id} selected={lib.current}>{lib.name}{lib.main ? " (My files)" : ""}</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+    </div>
+  {/if}
+  {#if remote.providerId === "drive" && drives.lights[remote.name] !== "connected"}
+    <p class="tip">
+      Slow or red? Google is retiring the shared sign-in many apps use. Add your own free Google client ID with
+      <strong>Edit settings</strong>, then <strong>Sign in again</strong>. Steps:
+      <a href="https://rclone.org/drive/#making-your-own-client-id" target="_blank" rel="noopener">making your own client ID</a>.
+    </p>
+  {/if}
 {/snippet}
 
 <div class="overlay" role="presentation" onclick={(e) => e.target === e.currentTarget && onClose()}>
@@ -446,6 +538,45 @@
     font-size: 12px;
     padding: 4px 10px;
     background: var(--window-bg);
+  }
+  .waiting {
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .link,
+  .linkish {
+    font-size: 12px;
+    color: var(--accent);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    text-align: left;
+  }
+  .library {
+    margin: -4px 0 10px 52px;
+    font-size: 12px;
+  }
+  .library label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 600;
+  }
+  .library select {
+    padding: 3px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--separator);
+    background: var(--window-bg);
+    color: inherit;
+  }
+  .tip {
+    margin: -4px 0 12px 52px;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .tip a {
+    color: var(--accent);
   }
   .empty {
     margin: 0 0 4px;

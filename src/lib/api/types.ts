@@ -89,6 +89,8 @@ export interface RemoteForm {
 /** Mirrors `remotes::ConnectionTest`. `details` holds the raw engine text when the test failed. */
 export interface ConnectionTest {
   ok: boolean;
+  /** The check timed out: set up and probably fine, just slow right now. */
+  slow?: boolean;
   message: string;
   details?: string;
 }
@@ -234,4 +236,14 @@ export interface AccountInfo {
   driveType: string | null;
   usedBytes: number | null;
   totalBytes: number | null;
+}
+
+/** Mirrors `remotes::onedrive::Library`. */
+export interface OneDriveLibrary {
+  id: string;
+  name: string;
+  /** The person's own OneDrive ("My files"). */
+  main: boolean;
+  /** The library this connection uses now. */
+  current: boolean;
 }

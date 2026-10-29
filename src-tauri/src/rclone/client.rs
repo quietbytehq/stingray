@@ -110,7 +110,9 @@ impl RcClient {
 }
 
 fn transport_error(err: reqwest::Error) -> AppError {
-    if err.is_connect() || err.is_timeout() {
+    if err.is_timeout() {
+        AppError::new(ErrorKind::Timeout, text::ENGINE_SLOW).with_details(err.to_string())
+    } else if err.is_connect() {
         AppError::new(ErrorKind::NotRunning, text::ENGINE_UNREACHABLE).with_details(err.to_string())
     } else {
         AppError::new(ErrorKind::Rclone, text::ENGINE_REQUEST_FAILED).with_details(err.to_string())

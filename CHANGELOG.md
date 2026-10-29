@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.2.0 (unreleased)
+
+- OneDrive: setup now opens your own OneDrive ("My files") instead of the first library Microsoft
+  lists; Settings → Accounts can switch to any other library on the account.
+- "Sign in again" really signs in again through the browser, for Google Drive, OneDrive and Dropbox.
+- A slow service shows an amber light ("Connected, but slow to respond") instead of red, and checks
+  wait longer. The misleading "lost contact with its storage engine" message on slow replies is gone.
+- Google Drive: a tip and an Edit settings button for using your own Google client ID.
+- Sidebar places use the chosen icon theme; bigger Stingray logo.
+
 ## 1.1.0 (unreleased)
 
 - Settings window (gear next to the logo, or Ctrl+,) with Accounts and Appearance.

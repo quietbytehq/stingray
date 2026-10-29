@@ -6,6 +6,7 @@
 pub mod commands;
 pub mod health;
 pub mod oauth;
+pub mod onedrive;
 pub mod providers;
 pub mod store;
 
@@ -43,6 +44,9 @@ pub struct RemoteForm {
 #[serde(rename_all = "camelCase")]
 pub struct ConnectionTest {
     pub ok: bool,
+    /// True when the check timed out: set up and probably fine, just slow right now.
+    #[serde(default)]
+    pub slow: bool,
     pub message: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,

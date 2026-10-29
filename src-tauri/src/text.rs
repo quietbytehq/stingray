@@ -11,6 +11,7 @@ use crate::error::{AppError, ErrorKind};
 // Storage engine (rclone) lifecycle.
 pub const ENGINE_NOT_READY: &str =
     "Stingray is still starting its storage engine. Try again in a moment.";
+pub const ENGINE_SLOW: &str = "The service is taking too long to answer. It may be busy or limiting requests; Stingray keeps trying.";
 pub const ENGINE_UNREACHABLE: &str = "Stingray lost contact with its storage engine. It restarts on its own; if this keeps happening, restart Stingray.";
 pub const ENGINE_BAD_ANSWER: &str =
     "Stingray got an answer it could not read from its storage engine. Try again.";

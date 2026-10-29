@@ -29,6 +29,8 @@ pub enum ErrorKind {
     Unsupported,
     /// Something went wrong inside Stingray.
     Internal,
+    /// The engine is running but the answer took too long (often a slow or throttled service).
+    Timeout,
 }
 
 impl AppError {
