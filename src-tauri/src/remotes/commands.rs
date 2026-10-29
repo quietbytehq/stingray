@@ -195,3 +195,11 @@ pub async fn test_remote(
     );
     Ok(result)
 }
+
+#[tauri::command]
+pub async fn account_info(
+    name: String,
+    supervisor: State<'_, Supervisor>,
+) -> AppResult<store::AccountInfo> {
+    store::account_info(&supervisor.client()?, &name).await
+}

@@ -17,6 +17,12 @@ class SettingsStore {
     }
   }
 
+  /** Saves a change to some fields, keeping the rest. */
+  async patch(change: Partial<Settings>): Promise<boolean> {
+    if (!this.value) return false;
+    return this.save({ ...this.value, ...change });
+  }
+
   async save(next: Settings): Promise<boolean> {
     this.error = null;
     try {

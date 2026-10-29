@@ -3,7 +3,8 @@
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { childOf, type Location } from "$lib/util/location";
   import { formatBytes } from "$lib/util/format";
-  import FileIcon from "./FileIcon.svelte";
+  import FileIcon, { type SpecialFolder } from "./FileIcon.svelte";
+  import { drives } from "$lib/stores/drives.svelte";
 
   let {
     loc,
@@ -11,6 +12,8 @@
     mode,
     selected = $bindable(),
     renaming = null,
+    iconSize = 56,
+    thumbnails = true,
     onOpen,
     onItemMenu,
     onBackgroundMenu,
@@ -22,6 +25,10 @@
     selected: Set<string>;
     /** Path of the item being renamed in place, if any. */
     renaming?: string | null;
+    /** Icon size in the icon view, in pixels. */
+    iconSize?: number;
+    /** Show pictures as thumbnails rather than file icons. */
+    thumbnails?: boolean;
     onOpen: (entry: FileEntry) => void;
     onItemMenu: (event: MouseEvent, entry: FileEntry) => void;
     onBackgroundMenu: (event: MouseEvent) => void;
@@ -86,7 +93,12 @@
     return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
   }
 
-  const localPath = (entry: FileEntry) => (loc.kind === "local" ? entry.path : null);
+  /** Home folders (Desktop, Music…) get their own picture, like in the sidebar. */
+  const specials = $derived(new Map(drives.places.filter((p) => p.kind !== "volume").map((p) => [p.path, p.kind as SpecialFolder])));
+  const special = (entry: FileEntry): SpecialFolder | null =>
+    loc.kind === "local" && entry.isDir ? (specials.get(entry.path) ?? null) : null;
+
+  const localPath = (entry: FileEntry) => (thumbnails && loc.kind === "local" ? entry.path : null);
 </script>
 
 {#snippet name(entry: FileEntry)}
@@ -116,7 +128,7 @@
   oncontextmenu={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("grid") || (e.target as HTMLElement).tagName === "TBODY") { e.preventDefault(); selected = new Set(); onBackgroundMenu(e); } }}
 >
   {#if mode === "grid"}
-    <div class="grid" role="listbox" aria-multiselectable="true" aria-label="Files">
+    <div class="grid" style:--tile="{Math.max(96, iconSize + 44)}px" style:--icon="{iconSize + 8}px" role="listbox" aria-multiselectable="true" aria-label="Files">
       {#each entries as entry (entry.path)}
         {@const target = entry.isDir ? dropKey(childOf(loc, entry)) : undefined}
         <div
@@ -133,7 +145,7 @@
           onpointerdown={(e) => pointerdown(e, entry)}
           oncontextmenu={(e) => menu(e, entry)}
         >
-          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={56} localPath={localPath(entry)} /></span>
+          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={iconSize} localPath={localPath(entry)} special={special(entry)} /></span>
           {@render name(entry)}
         </div>
       {/each}
@@ -156,7 +168,7 @@
             onpointerdown={(e) => pointerdown(e, entry)}
             oncontextmenu={(e) => menu(e, entry)}
           >
-            <td class="col-name"><span class="row-name"><FileIcon name={entry.name} isDir={entry.isDir} size={20} />{@render name(entry)}</span></td>
+            <td class="col-name"><span class="row-name"><FileIcon name={entry.name} isDir={entry.isDir} size={20} special={special(entry)} />{@render name(entry)}</span></td>
             <td class="muted">{modified(entry.modTime)}</td>
             <td class="num muted">{entry.isDir ? "—" : formatBytes(entry.size)}</td>
           </tr>
@@ -182,7 +194,7 @@
   }
   .grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--tile, 104px), 1fr));
     gap: 6px 4px;
     align-content: start;
     min-height: 100%;
@@ -200,8 +212,8 @@
   .icon {
     display: grid;
     place-items: center;
-    width: 64px;
-    height: 60px;
+    width: var(--icon, 64px);
+    height: var(--icon, 64px);
     border-radius: 8px;
   }
   .tile.selected .icon {

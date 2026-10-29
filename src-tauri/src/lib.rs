@@ -131,6 +131,7 @@ pub fn run() {
             remotes::commands::rename_remote,
             remotes::commands::delete_remote,
             remotes::commands::test_remote,
+            remotes::commands::account_info,
             files::commands::inspect_local_paths,
             files::commands::list_files,
             files::commands::create_folder,

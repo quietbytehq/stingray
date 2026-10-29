@@ -1,5 +1,6 @@
 import { api, asAppError } from "$lib/api";
-import type { AppError, NfsShareView, Place, ProviderDef, RemoteSummary } from "$lib/api/types";
+import type { AccountInfo, AppError, NfsShareView, Place, ProviderDef, RemoteSummary } from "$lib/api/types";
+import { settings } from "$lib/stores/settings.svelte";
 
 /**
  * Connection light for a drive in the sidebar:
@@ -17,12 +18,19 @@ export const NETWORK_PROVIDERS = ["smb", "sftp"] as const;
 
 const RECHECK_MS = 60_000;
 
+/** Badge colours for telling accounts of the same service apart. */
+export const BADGE_COLORS = ["#8a3ffc", "#e81cc4", "#ff9f0a", "#30b0c7", "#34c759", "#ff453a", "#0a84ff", "#a2845e"];
+
+export const CLOUD_TITLES: Record<string, string> = { drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox" };
+
 class DriveStore {
   places = $state<Place[]>([]);
   providers = $state<ProviderDef[]>([]);
   remotes = $state<RemoteSummary[]>([]);
   nfs = $state<NfsShareView[]>([]);
   lights = $state<Record<string, Light>>({});
+  /** Email, drive type and storage per connection, loaded in the background. */
+  info = $state<Record<string, AccountInfo>>({});
   error = $state<AppError | null>(null);
   online = $state(typeof navigator === "undefined" ? true : navigator.onLine);
   #timer = 0;
@@ -63,6 +71,19 @@ class DriveStore {
       return;
     }
     await this.checkAll();
+    void this.loadInfo();
+  }
+
+  /** Fetches account details for every cloud connection, one at a time so the engine stays responsive. */
+  async loadInfo() {
+    for (const remote of this.remotes) {
+      if ((NETWORK_PROVIDERS as readonly string[]).includes(remote.providerId ?? "")) continue;
+      try {
+        this.info[remote.name] = await api.accountInfo(remote.name);
+      } catch {
+        // Details are a nice-to-have; the account still works without them.
+      }
+    }
   }
 
   async checkAll() {
@@ -101,17 +122,39 @@ class DriveStore {
     return this.remotes.find((remote) => remote.providerId === id);
   }
 
+  /** Every connection for a cloud service, in name order. */
+  accountsOf(id: CloudProvider): RemoteSummary[] {
+    return this.remotes.filter((remote) => remote.providerId === id).sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /** What to call an account: your label, else its email, else the connection name. */
+  displayName(remote: RemoteSummary): string {
+    const look = settings.value?.accounts[remote.name];
+    return look?.label?.trim() || this.info[remote.name]?.user || remote.name;
+  }
+
+  /** The account's badge colour: yours if set, otherwise a stable colour from its name. */
+  badgeColor(remote: RemoteSummary): string {
+    const chosen = settings.value?.accounts[remote.name]?.color;
+    if (chosen) return chosen;
+    let hash = 0;
+    for (const ch of remote.name) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
+    return BADGE_COLORS[hash % BADGE_COLORS.length];
+  }
+
   get network(): RemoteSummary[] {
     return this.remotes.filter((remote) => (NETWORK_PROVIDERS as readonly string[]).includes(remote.providerId ?? ""));
   }
 
+  /** True when an account shares its service with another one, so it needs a badge to tell them apart. */
+  needsBadge(remote: RemoteSummary): boolean {
+    return this.remotes.filter((r) => r.providerId === remote.providerId).length > 1;
+  }
+
   /** Other connections made elsewhere (for example in Orbit or by hand), shown under Cloud. */
   get otherClouds(): RemoteSummary[] {
-    const fixed = this.remotes.filter((r) => (CLOUD_PROVIDERS as readonly string[]).includes(r.providerId ?? ""));
-    const firstOfEach = CLOUD_PROVIDERS.map((id) => fixed.find((r) => r.providerId === id)).filter(Boolean);
-    return this.remotes.filter(
-      (r) => !firstOfEach.includes(r) && !(NETWORK_PROVIDERS as readonly string[]).includes(r.providerId ?? ""),
-    );
+    const known = [...CLOUD_PROVIDERS, ...NETWORK_PROVIDERS] as readonly string[];
+    return this.remotes.filter((r) => !known.includes(r.providerId ?? ""));
   }
 }
 

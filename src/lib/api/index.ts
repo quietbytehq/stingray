@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  AccountInfo,
   AppError,
   AppInfo,
   ConnectionTest,
@@ -40,6 +41,7 @@ export const api = {
 
   listProviders: () => invoke<ProviderDef[]>("list_providers"),
   listRemotes: () => invoke<RemoteSummary[]>("list_remotes"),
+  accountInfo: (name: string) => invoke<AccountInfo>("account_info", { name }),
   getRemoteForm: (name: string) => invoke<RemoteForm>("get_remote_form", { name }),
   createRemote: (request: NewRemote) => invoke<RemoteSummary>("create_remote", { request }),
   startBrowserSignIn: (request: NewRemote) => invoke<RemoteSummary>("start_browser_sign_in", { request }),

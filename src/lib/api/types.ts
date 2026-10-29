@@ -213,4 +213,25 @@ export interface Settings {
   lastSplashVersion: string | null;
   /** Unused by Stingray; kept so settings files stay compatible. */
   startOnLogin: boolean;
+  /** Icon set: "stingray", "fluent", "cupertino" or "outline". */
+  iconTheme: string;
+  /** Icon size in the icon view, 32 to 128 px. */
+  iconSize: number;
+  showThumbnails: boolean;
+  /** Your own label and badge colour per account, keyed by connection name. */
+  accounts: Record<string, AccountLook>;
+}
+
+/** Mirrors `settings::AccountLook`. */
+export interface AccountLook {
+  label: string;
+  color: string;
+}
+
+/** Mirrors `remotes::store::AccountInfo`. */
+export interface AccountInfo {
+  user: string | null;
+  driveType: string | null;
+  usedBytes: number | null;
+  totalBytes: number | null;
 }

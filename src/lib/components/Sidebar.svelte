@@ -1,13 +1,12 @@
 <script lang="ts">
   import type { Component } from "svelte";
   import type { NfsShareView, Place, RemoteSummary } from "$lib/api/types";
-  import { drives, CLOUD_PROVIDERS, type CloudProvider, type Light } from "$lib/stores/drives.svelte";
+  import { drives, CLOUD_PROVIDERS, CLOUD_TITLES, type CloudProvider, type Light } from "$lib/stores/drives.svelte";
+  import BrandIcon from "./BrandIcon.svelte";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { sameLocation, type Location } from "$lib/util/location";
   import {
-    Box,
     Cloud,
-    CloudUpload,
     Download,
     Film,
     FileText,
@@ -19,6 +18,7 @@
     Network,
     Plus,
     Server,
+    Settings,
     Terminal,
     Trash,
   } from "$lib/icons";
@@ -31,6 +31,7 @@
     onConnectServer,
     onOpenNfs,
     onMenu,
+    onSettings,
   }: {
     current: Location;
     onNavigate: (loc: Location, label: string) => void;
@@ -38,6 +39,8 @@
     onConnectServer: () => void;
     onOpenNfs: (share: NfsShareView) => void;
     onMenu: (event: MouseEvent, items: MenuItem[]) => void;
+    /** Opens Settings, optionally at a section ("accounts", "appearance"). */
+    onSettings: (section?: string) => void;
   } = $props();
 
   const PLACE_ICONS: Record<Place["kind"], Component> = {
@@ -51,8 +54,6 @@
     trash: Trash,
     volume: HardDrive,
   };
-  const CLOUD_ICONS: Record<CloudProvider, Component> = { drive: Cloud, onedrive: CloudUpload, dropbox: Box };
-  const CLOUD_TITLES: Record<CloudProvider, string> = { drive: "Google Drive", onedrive: "OneDrive", dropbox: "Dropbox" };
   const LIGHT_TEXT: Record<Light, string> = {
     connected: "Connected",
     offline: "Not connected",
@@ -84,6 +85,7 @@
     onMenu(event, [
       { label: "Open", action: () => onNavigate(remoteLoc(remote), remote.name) },
       { label: "Check connection", action: () => void drives.check(remote.name) },
+      { label: "Account settings…", action: () => onSettings("accounts") },
       {
         label: `Remove ${remote.name}…`,
         destructive: true,
@@ -105,8 +107,11 @@
 
 <aside class="sidebar" aria-label="Locations">
   <div class="brand">
-    <img src="/favicon.png" alt="" width="20" height="20" />
+    <img src="/stingray.png" alt="" width="34" height="34" />
     <span>Stingray</span>
+    <button type="button" class="gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => onSettings()}>
+      <Settings size={16} strokeWidth={1.75} aria-hidden="true" />
+    </button>
   </div>
 
   <nav>
@@ -134,38 +139,47 @@
       </button>
     {/each}
 
-    <h2>Cloud</h2>
+    <h2 class="with-action">
+      Cloud
+      <button type="button" class="mini" title="Manage accounts" aria-label="Manage accounts" onclick={() => onSettings("accounts")}>
+        <Plus size={13} strokeWidth={2} aria-hidden="true" />
+      </button>
+    </h2>
     {#each CLOUD_PROVIDERS as id (id)}
-      {@const Icon = CLOUD_ICONS[id]}
-      {@const remote = drives.cloud(id)}
-      {#if remote}
+      {@const accounts = drives.accountsOf(id)}
+      {#each accounts as remote (remote.name)}
         {@const loc = remoteLoc(remote)}
+        {@const name = drives.displayName(remote)}
         <button
           type="button"
           class="item"
           class:current={isCurrentRemote(remote)}
           class:drop={drag.over === dropKey(loc)}
           data-drop={dropKey(loc)}
-          onclick={() => onNavigate(loc, CLOUD_TITLES[id])}
+          title={drives.info[remote.name]?.user ?? remote.name}
+          onclick={() => onNavigate(loc, accounts.length > 1 ? name : CLOUD_TITLES[id])}
           oncontextmenu={(e) => remoteMenu(e, remote)}
         >
-          <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
-          <span class="label">{CLOUD_TITLES[id]}</span>
+          <BrandIcon
+            provider={id}
+            badge={accounts.length > 1 ? { letter: name.slice(0, 1).toUpperCase(), color: drives.badgeColor(remote) } : null}
+          />
+          <span class="label">{accounts.length > 1 ? name : CLOUD_TITLES[id]}</span>
           {@render dot(drives.light(remote.name))}
         </button>
       {:else}
         <button type="button" class="item idle" onclick={() => onSetUpCloud(id)} title="Set up {CLOUD_TITLES[id]}">
-          <Icon size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span class="faded"><BrandIcon provider={id} /></span>
           <span class="label">{CLOUD_TITLES[id]}</span>
           {@render dot("none")}
         </button>
-      {/if}
+      {/each}
     {/each}
     {#each drives.otherClouds as remote (remote.name)}
       {@const loc = remoteLoc(remote)}
-      <button type="button" class="item" class:current={isCurrentRemote(remote)} class:drop={drag.over === dropKey(loc)} data-drop={dropKey(loc)} onclick={() => onNavigate(loc, remote.name)} oncontextmenu={(e) => remoteMenu(e, remote)}>
-        <Cloud size={16} strokeWidth={1.75} aria-hidden="true" />
-        <span class="label">{remote.name}</span>
+      <button type="button" class="item" class:current={isCurrentRemote(remote)} class:drop={drag.over === dropKey(loc)} data-drop={dropKey(loc)} onclick={() => onNavigate(loc, drives.displayName(remote))} oncontextmenu={(e) => remoteMenu(e, remote)}>
+        <BrandIcon provider={null} />
+        <span class="label">{drives.displayName(remote)}</span>
         {@render dot(drives.light(remote.name))}
       </button>
     {/each}
@@ -242,11 +256,47 @@
   .brand {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 2px 8px 6px;
-    font-weight: 650;
-    font-size: 14px;
-    letter-spacing: -0.01em;
+    gap: 9px;
+    padding: 2px 4px 8px 6px;
+    font-weight: 700;
+    font-size: 18px;
+    letter-spacing: -0.02em;
+  }
+  .brand img {
+    filter: drop-shadow(0 2px 4px rgba(138, 63, 252, 0.35));
+  }
+  .gear,
+  .mini {
+    margin-left: auto;
+    display: grid;
+    place-items: center;
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    border-radius: 6px;
+    cursor: default;
+  }
+  .gear {
+    width: 28px;
+    height: 26px;
+  }
+  .mini {
+    width: 20px;
+    height: 18px;
+  }
+  .gear:hover,
+  .mini:hover {
+    background: var(--control-bg);
+    color: var(--text-primary);
+  }
+  h2.with-action {
+    display: flex;
+    align-items: center;
+  }
+  .faded {
+    display: inline-grid;
+    opacity: 0.45;
+    filter: grayscale(0.6);
   }
   h2 {
     margin: 16px 8px 4px;

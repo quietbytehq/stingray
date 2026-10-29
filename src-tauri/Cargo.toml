@@ -1,6 +1,6 @@
 [package]
 name = "stingray"
-version = "1.0.0"
+version = "1.1.0"
 description = "Stingray File Manager: a modern file manager for local, cloud and network drives"
 authors = ["QuietByte"]
 license = "Apache-2.0"

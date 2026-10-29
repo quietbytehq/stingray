@@ -24,6 +24,8 @@
   import Dialog from "$lib/components/Dialog.svelte";
   import RemoteWizard from "$lib/components/RemoteWizard.svelte";
   import ConnectServer from "$lib/components/ConnectServer.svelte";
+  import SettingsDialog from "$lib/components/SettingsDialog.svelte";
+  import { settings } from "$lib/stores/settings.svelte";
   import ErrorNote from "$lib/components/ErrorNote.svelte";
   import TransferPanel from "$lib/components/TransferPanel.svelte";
 
@@ -48,6 +50,8 @@
   let menu = $state<{ x: number; y: number; items: MenuItem[] } | null>(null);
   let wizardFor = $state<CloudProvider | null>(null);
   let connectServer = $state(false);
+  /** Open Settings section, or null when Settings is closed. */
+  let settingsAt = $state<string | null>(null);
   let clipboard = $state<{ payload: DragPayload; cut: boolean } | null>(null);
   let externalOver = $state(false);
 
@@ -298,7 +302,20 @@
   // ---- Keyboard -----------------------------------------------------------------------------
   function keydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
-    if (target.tagName === "INPUT" || menu || wizardFor || connectServer) return;
+    if (target.tagName === "INPUT" || menu || wizardFor || connectServer || settingsAt) return;
+    const zoom = event.ctrlKey && (event.key === "+" || event.key === "=" || event.key === "-");
+    if (zoom && settings.value) {
+      const step = event.key === "-" ? -8 : 8;
+      const next = Math.max(32, Math.min(128, settings.value.iconSize + step));
+      if (next !== settings.value.iconSize) void settings.patch({ iconSize: next });
+      event.preventDefault();
+      return;
+    }
+    if (event.ctrlKey && event.key === ",") {
+      settingsAt = "accounts";
+      event.preventDefault();
+      return;
+    }
     const ctrl = event.ctrlKey || event.metaKey;
     const single = selectedEntries.length === 1 ? selectedEntries[0] : null;
     if (event.altKey && event.key === "ArrowLeft") goBack();
@@ -382,6 +399,7 @@
     onConnectServer={() => (connectServer = true)}
     onOpenNfs={(share) => void openNfs(share)}
     onMenu={showMenu}
+    onSettings={(section) => (settingsAt = section ?? "accounts")}
   />
 
   <section class="main">
@@ -442,6 +460,8 @@
         {mode}
         bind:selected
         {renaming}
+        iconSize={settings.value?.iconSize ?? 56}
+        thumbnails={settings.value?.showThumbnails ?? true}
         onOpen={(entry) => void open(entry)}
         onItemMenu={itemMenu}
         onBackgroundMenu={backgroundMenu}
@@ -494,6 +514,10 @@
       <p>Stingray's storage engine is still starting. Try again in a moment.</p>
     {/if}
   </Dialog>
+{/if}
+
+{#if settingsAt}
+  <SettingsDialog section={settingsAt} onClose={() => (settingsAt = null)} onConnectServer={() => { settingsAt = null; connectServer = true; }} />
 {/if}
 
 {#if connectServer}

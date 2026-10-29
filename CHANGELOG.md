@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.0 (unreleased)
+
+- Settings window (gear next to the logo, or Ctrl+,) with Accounts and Appearance.
+- Accounts: several accounts per cloud service; add, sign in again, remove. Each shows its email,
+  drive type (personal, work or school, SharePoint library) and storage used, with your own label
+  and badge colour.
+- Sidebar shows every account with the service's official logo; accounts of the same service get a
+  coloured initial badge.
+- Four icon themes: Stingray, Fluent, Cupertino and Outline. Home folders get their own pictures.
+- Icon size slider (32 to 128 px), also Ctrl + and Ctrl −; switch for picture thumbnails.
+- Bigger Stingray logo in the sidebar.
+
 ## 1.0.0 (2026-10-28)
 
 First release of Stingray File Manager.

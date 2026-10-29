@@ -5,7 +5,7 @@ use super::{ConnectionTest, RemoteForm, RemoteSummary};
 use crate::error::{AppError, AppResult, ErrorKind};
 use crate::rclone::RcClient;
 use crate::text;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -161,6 +161,57 @@ pub async fn rename(client: &RcClient, from: &str, to: &str) -> AppResult<()> {
     delete(client, from).await
 }
 
+/// What Stingray can tell about the account behind a connection, for the Accounts screen.
+#[derive(Debug, Clone, Default, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AccountInfo {
+    /// The signed-in email or user name, when the service reports it.
+    pub user: Option<String>,
+    /// OneDrive only: "personal", "business" or "documentLibrary" (SharePoint).
+    pub drive_type: Option<String>,
+    pub used_bytes: Option<i64>,
+    pub total_bytes: Option<i64>,
+}
+
+/// Reads the email from `rclone config userinfo` output: the line "Email: …" or "Login: …".
+pub fn user_from_userinfo(output: &str) -> Option<String> {
+    output.lines().find_map(|line| {
+        let (key, value) = line.split_once(':')?;
+        let key = key.trim().to_ascii_lowercase();
+        let value = value.trim();
+        ((key == "email" || key == "login" || key == "name") && !value.is_empty())
+            .then(|| value.to_owned())
+    })
+}
+
+/// Collects account details. Each part is optional: a service that can't report it leaves it empty.
+pub async fn account_info(client: &RcClient, name: &str) -> AppResult<AccountInfo> {
+    let raw = get_raw(client, name).await?;
+    let mut info = AccountInfo {
+        drive_type: raw.get("drive_type").cloned().filter(|t| !t.is_empty()),
+        ..Default::default()
+    };
+    if let Ok(about) = client
+        .call_value_with_timeout("operations/about", &json!({ "fs": format!("{name}:") }), TEST_TIMEOUT)
+        .await
+    {
+        info.used_bytes = about.get("used").and_then(|v| v.as_i64());
+        info.total_bytes = about.get("total").and_then(|v| v.as_i64());
+    }
+    if let Ok(out) = client
+        .call_value_with_timeout(
+            "core/command",
+            &json!({ "command": "config", "arg": ["userinfo", format!("{name}:")], "returnType": "COMBINED_OUTPUT" }),
+            TEST_TIMEOUT,
+        )
+        .await
+    {
+        let text = out.get("result").and_then(|v| v.as_str()).unwrap_or_default();
+        info.user = user_from_userinfo(text);
+    }
+    Ok(info)
+}
+
 /// Checks that a remote can be listed. Uses the remote root (or the network share's folder),
 /// which is cheap on every backend.
 pub async fn test(client: &RcClient, name: &str) -> AppResult<ConnectionTest> {
@@ -194,6 +245,18 @@ pub async fn test(client: &RcClient, name: &str) -> AppResult<ConnectionTest> {
             }
         }
     })
+}
+
+#[cfg(test)]
+mod account_tests {
+    use super::user_from_userinfo;
+
+    #[test]
+    fn reads_the_email() {
+        assert_eq!(user_from_userinfo("Id: 123\nEmail: ana@example.com\n"), Some("ana@example.com".into()));
+        assert_eq!(user_from_userinfo("Login: ana\n"), Some("ana".into()));
+        assert_eq!(user_from_userinfo("nothing here"), None);
+    }
 }
 
 #[cfg(test)]

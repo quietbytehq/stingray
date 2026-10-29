@@ -22,6 +22,14 @@ pub struct Settings {
     pub last_splash_version: Option<String>,
     /// Register Stingray to start when the user signs in. It then starts minimized to the tray.
     pub start_on_login: bool,
+    /// Icon set for files and folders: "stingray", "fluent", "cupertino" or "outline".
+    pub icon_theme: String,
+    /// Icon size in the icon view, in pixels.
+    pub icon_size: u16,
+    /// Show pictures as thumbnails instead of file icons.
+    pub show_thumbnails: bool,
+    /// Your own label and badge colour for each account, keyed by connection name.
+    pub accounts: std::collections::BTreeMap<String, AccountLook>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -84,6 +92,15 @@ impl LogLevel {
     }
 }
 
+/// How an account is shown in the sidebar. Only a label and a colour; never anything secret.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct AccountLook {
+    pub label: String,
+    /// A colour like "#8a3ffc".
+    pub color: String,
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -94,6 +111,10 @@ impl Default for Settings {
             splash: SplashMode::Short,
             last_splash_version: None,
             start_on_login: false,
+            icon_theme: "stingray".into(),
+            icon_size: 56,
+            show_thumbnails: true,
+            accounts: Default::default(),
         }
     }
 }
@@ -102,9 +123,18 @@ impl Settings {
     pub const MAX_CONCURRENCY: u8 = 8;
 
     /// Returns an error if a value is out of range.
+    pub const MIN_ICON: u16 = 32;
+    pub const MAX_ICON: u16 = 128;
+
     pub fn validate(&self) -> AppResult<()> {
         if self.transfer_concurrency == 0 || self.transfer_concurrency > Self::MAX_CONCURRENCY {
             return Err(AppError::invalid(text::CONCURRENCY_RANGE));
+        }
+        if !(Self::MIN_ICON..=Self::MAX_ICON).contains(&self.icon_size) {
+            return Err(AppError::invalid("Icon size must be between 32 and 128."));
+        }
+        if !["stingray", "fluent", "cupertino", "outline"].contains(&self.icon_theme.as_str()) {
+            return Err(AppError::invalid("That icon theme isn't available."));
         }
         Ok(())
     }
@@ -183,10 +213,30 @@ mod tests {
             splash: SplashMode::Off,
             last_splash_version: Some("0.2.0".into()),
             start_on_login: true,
+            icon_theme: "outline".into(),
+            icon_size: 96,
+            show_thumbnails: false,
+            accounts: [(
+                "Work".to_owned(),
+                AccountLook { label: "Office".into(), color: "#ff9f0a".into() },
+            )]
+            .into(),
         };
         save(&path, &settings).unwrap();
         assert_eq!(load(&path).unwrap(), settings);
         assert!(!path.with_extension("json.tmp").exists());
+    }
+
+    #[test]
+    fn rejects_bad_icon_settings() {
+        let mut settings = Settings::default();
+        settings.icon_size = 8;
+        assert!(settings.validate().is_err());
+        settings.icon_size = 64;
+        settings.icon_theme = "neon".into();
+        assert!(settings.validate().is_err());
+        settings.icon_theme = "fluent".into();
+        assert!(settings.validate().is_ok());
     }
 
     #[test]
