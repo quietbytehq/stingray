@@ -144,15 +144,21 @@
       opacity 0.7s ease,
       transform 0.7s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
+  @font-face {
+    font-family: "Great Vibes";
+    src: url("/fonts/GreatVibes-Regular.ttf") format("truetype");
+    font-display: block;
+  }
   .name h1 {
-    margin: 0;
-    font-size: 38px;
-    font-weight: 750;
-    letter-spacing: -0.035em;
-    background: linear-gradient(120deg, #b98bff, #ff5ad9);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+    margin: 0 0 -4px;
+    font-family: "Great Vibes", "Segoe Script", cursive;
+    font-size: 64px;
+    font-weight: 400;
+    line-height: 1.05;
+    color: #ffffff;
+    text-shadow:
+      0 2px 12px rgba(138, 63, 252, 0.55),
+      0 0 2px rgba(0, 0, 0, 0.4);
   }
   .name p {
     margin: 2px 0 0;
