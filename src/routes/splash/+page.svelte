@@ -4,7 +4,8 @@
   import { FADE_OUT_MS, REDUCED_HOLD_MS } from "$lib/splash/timeline";
 
   /**
-   * Stingray's opening: a short clip of the stingray swimming, with the name settling in over it.
+   * Stingray's opening: a short animation of the stingray swimming (an animated WebP, which every
+   * web view shows without needing a video player), with the name settling in over it.
    * Click or press any key to skip. With reduced motion, a still frame shows briefly instead. If the
    * clip can't play (a missing video codec, say), the still frame shows and the app opens as usual.
    */
@@ -13,7 +14,7 @@
   /** The clip is longer than an intro should be; it is stopped here, fading out. */
   const CLIP_MS = 6000;
   /** The short intro on later launches stops the clip early. */
-  const SHORT_MS = 3200;
+  const SHORT_MS = 6000;
 
   let still = $state(false);
   let leaving = $state(false);
@@ -21,7 +22,6 @@
   let showName = $state(false);
   let version = $state("");
   let finished = false;
-  let video: HTMLVideoElement | undefined = $state();
 
   async function finish() {
     if (finished) return;
@@ -47,7 +47,7 @@
       void api
         .getSplashPlan()
         .then((plan) => {
-          if (plan === "short") timers.push(window.setTimeout(finish, SHORT_MS));
+          timers.push(window.setTimeout(finish, plan === "short" ? SHORT_MS : CLIP_MS));
         })
         .catch(() => {});
     }
@@ -86,23 +86,9 @@
   style:transition-duration="{FADE_OUT_MS}ms"
 >
   {#if still || failed}
-    <img class="frame still" src="/stingray.png" alt="" />
+    <img class="frame" src="/splash-still.jpg" alt="" />
   {:else}
-    <!-- svelte-ignore a11y_media_has_caption -->
-    <video
-      bind:this={video}
-      class="frame"
-      autoplay
-      muted
-      playsinline
-      onended={finish}
-      onerror={videoFailed}
-      ontimeupdate={() => {
-        if (video && video.currentTime * 1000 >= CLIP_MS) void finish();
-      }}
-    >
-      <source src="/splash.mp4" type="video/mp4" onerror={videoFailed} />
-    </video>
+    <img class="frame" src="/splash.webp" alt="" onerror={videoFailed} />
   {/if}
   <div class="name" class:shown={showName}>
     <h1>Stingray</h1>
