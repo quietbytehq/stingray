@@ -28,7 +28,17 @@
   const TABS = [
     { id: "accounts", label: "Accounts" },
     { id: "appearance", label: "Appearance" },
+    { id: "about", label: "About" },
   ];
+
+  let version = $state("");
+  $effect(() => {
+    if (tab === "about" && !version) void api.appInfo().then((info) => (version = info.version)).catch(() => {});
+  });
+
+  function open(url: string) {
+    void openUrl(url).catch(() => window.open(url, "_blank"));
+  }
 
   const DRIVE_TYPES: Record<string, string> = {
     personal: "Personal",
@@ -292,6 +302,33 @@
             <p class="empty">No servers yet.</p>
           {/if}
         </div>
+      {:else if tab === "about"}
+        <div class="about">
+          <img src="/stingray.png" alt="" width="96" height="96" />
+          <h3 class="about-name">Stingray File Manager</h3>
+          <p class="about-version">Version {version || "…"}</p>
+          <p class="about-text">
+            A modern file manager for Linux and Windows that puts your folders, your cloud drives and your servers in
+            one window. Free and open source.
+          </p>
+          <div class="about-links">
+            <button type="button" class="button primary" onclick={() => open("https://quietbytehq.github.io")}>QuietByte website</button>
+            <button type="button" class="button" onclick={() => open("https://github.com/quietbytehq/stingray")}>Source code</button>
+            <button type="button" class="button" onclick={() => open("https://github.com/quietbytehq/stingray/issues")}>Report a problem</button>
+          </div>
+          <div class="maker">
+            <strong>Made by QuietByte</strong>
+            <p>
+              QuietByte builds small, friendly open-source desktop apps for Linux and Windows, including Stingray,
+              Orbit and Timewizer. See every project at
+              <button type="button" class="linkish" onclick={() => open("https://quietbytehq.github.io")}>quietbytehq.github.io</button>.
+            </p>
+          </div>
+          <p class="credits">
+            Apache License 2.0. Built with Tauri and Svelte. Cloud and network drives by rclone. Icons by Lucide.
+            Google Drive, OneDrive and Dropbox logos belong to their owners and are shown only to identify each service.
+          </p>
+        </div>
       {:else if tab === "appearance"}
         <div class="field">
           <span class="field-label">Icon theme</span>
@@ -538,6 +575,53 @@
     font-size: 12px;
     padding: 4px 10px;
     background: var(--window-bg);
+  }
+  .about {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 12px 36px 0;
+  }
+  .about img {
+    filter: drop-shadow(0 6px 14px rgba(138, 63, 252, 0.35));
+  }
+  .about-name {
+    margin-top: 10px;
+    font-size: 20px;
+  }
+  .about-version {
+    margin: 2px 0 12px;
+    color: var(--text-secondary);
+    font-size: 12px;
+  }
+  .about-text {
+    max-width: 46ch;
+    margin: 0 0 16px;
+  }
+  .about-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .maker {
+    margin-top: 22px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    background: var(--control-bg);
+    max-width: 52ch;
+  }
+  .maker p {
+    margin: 6px 0 0;
+    font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .credits {
+    margin-top: 18px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    max-width: 60ch;
   }
   .waiting {
     font-size: 12px;

@@ -38,6 +38,19 @@
 
   let entries = $state<FileEntry[]>([]);
   let loading = $state(false);
+  const onGoogle = $derived(
+    loc.kind === "remote" && drives.remotes.find((r) => loc.kind === "remote" && r.name === loc.remote)?.providerId === "drive",
+  );
+  /** True once a folder has been loading for a while, to explain the wait. */
+  let slowLoad = $state(false);
+  $effect(() => {
+    if (!loading) {
+      slowLoad = false;
+      return;
+    }
+    const timer = window.setTimeout(() => (slowLoad = true), 6000);
+    return () => window.clearTimeout(timer);
+  });
   let error = $state<AppError | null>(null);
   let notice = $state<string | null>(null);
 
@@ -447,7 +460,18 @@
       <div class="banner"><ErrorNote {error} /></div>
     {/if}
 
-    {#if !error && !loading && visible.length === 0}
+    {#if loading && entries.length === 0}
+      <div class="empty" role="status">
+        <span class="loader" aria-hidden="true"></span>
+        <p>Opening {trail.at(-1)?.label ?? "folder"}…</p>
+        {#if slowLoad}
+          <p class="hint">
+            This service is answering slowly.{#if onGoogle}
+              Google limits apps that share a sign-in; adding your own Google client ID in Settings → Accounts makes it fast.{/if}
+          </p>
+        {/if}
+      </div>
+    {:else if !error && !loading && visible.length === 0}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="empty" oncontextmenu={(e) => { e.preventDefault(); backgroundMenu(e); }}>
         <img src="/stingray.png" alt="" width="88" height="88" />
@@ -677,6 +701,18 @@
     color: var(--text-secondary);
     text-align: center;
     padding: 24px;
+  }
+  .loader {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: 3px solid var(--separator);
+    border-top-color: var(--accent);
+    animation: spin 0.9s linear infinite;
+  }
+  .hint {
+    font-size: 12px;
+    max-width: 46ch;
   }
   .empty img {
     opacity: 0.35;

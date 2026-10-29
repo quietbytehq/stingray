@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.3.0 (unreleased)
+
+- About page in Settings, with the version, QuietByte's website and the project links.
+- The splash stingray swims: its wings rise and dip as it glides in.
+- Folders that take a while to open show a clear loading indicator, and after a few seconds explain
+  why (with a Google Drive tip about using your own client ID).
+
 ## 1.2.0 (unreleased)
 
 - OneDrive: setup now opens your own OneDrive ("My files") instead of the first library Microsoft

@@ -78,7 +78,7 @@
 >
   <div class="content" style:transition-duration="{FADE_OUT_MS}ms">
     <div class="ray" style:animation-delay="{glide[0]}ms" style:animation-duration="{glide[1]}ms">
-      <img src="/stingray.png" alt="" width="190" height="190" />
+      <img class="swim" src="/stingray.png" alt="" width="190" height="190" />
       <span class="sheen" style:animation-delay="{sweep[0]}ms" style:animation-duration="{sweep[1]}ms"></span>
     </div>
     <h1 style:animation-delay="{word[0]}ms" style:animation-duration="{word[1]}ms">Stingray</h1>
@@ -118,19 +118,45 @@
     width: 190px;
     height: 190px;
     opacity: 0;
-    -webkit-mask: url(/stingray.png) center / contain no-repeat;
-    mask: url(/stingray.png) center / contain no-repeat;
   }
   .ray img {
     display: block;
   }
+  /*
+   * Swimming: the ray rocks around its own body line (head at top left, tail at bottom right), so
+   * one wing dips while the other lifts, and rises and sinks a little with each stroke.
+   */
+  .ready .swim {
+    animation: swim 1.6s ease-in-out infinite;
+    transform-origin: 45% 45%;
+  }
+  @keyframes swim {
+    0% {
+      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(0);
+    }
+    25% {
+      transform: perspective(500px) rotate3d(1, -1, 0, 22deg) translateY(-4px) scale(0.98);
+    }
+    50% {
+      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(-6px);
+    }
+    75% {
+      transform: perspective(500px) rotate3d(1, -1, 0, -22deg) translateY(-3px) scale(0.98);
+    }
+    100% {
+      transform: perspective(500px) rotate3d(1, -1, 0, 0deg) translateY(0);
+    }
+  }
   /* A band of light passes over the ray once it has arrived, clipped to its shape by the mask. */
   .sheen {
+    display: none;
     position: absolute;
     inset: 0;
     background: linear-gradient(115deg, transparent 35%, rgba(255, 255, 255, 0.55) 50%, transparent 65%);
     transform: translateX(-120%);
     opacity: 0;
+    -webkit-mask: url(/stingray.png) center / contain no-repeat;
+    mask: url(/stingray.png) center / contain no-repeat;
   }
   h1 {
     margin: 6px 0 0;
@@ -201,6 +227,9 @@
       opacity: 1;
       transform: none;
     }
+  }
+  .still .swim {
+    animation: none !important;
   }
   .still .ray,
   .still h1,
