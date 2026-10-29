@@ -1,6 +1,6 @@
 {
   "name": "stingray-file-manager",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Stingray File Manager: local, cloud and network drives in one window",
   "type": "module",
   "scripts": {
