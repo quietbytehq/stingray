@@ -2,23 +2,25 @@
   import { onMount } from "svelte";
   import { api } from "$lib/api";
   import { FADE_OUT_MS, REDUCED_HOLD_MS } from "$lib/splash/timeline";
+  import { FACET_COUNT, renderFrame, type Frame } from "$lib/splash/stingray3d";
+
+  /** The live 3D ray. Drawn every animation frame; one still frame with reduced motion. */
+  let frame = $state<Frame>(renderFrame(0));
+  const facetSlots = Array.from({ length: FACET_COUNT }, (_, i) => i);
 
   /**
-   * Stingray's opening: a short animation of the stingray swimming (an animated WebP, which every
-   * web view shows without needing a video player), with the name settling in over it.
-   * Click or press any key to skip. With reduced motion, a still frame shows briefly instead. If the
-   * clip can't play (a missing video codec, say), the still frame shows and the app opens as usual.
+   * Stingray's opening: a 3D low-poly stingray swims, drawn live, then settles as the name appears.
+   * Click or press any key to skip. With reduced motion, one still frame shows briefly instead.
    */
-  /** Longest the splash may stay up, whatever happens to the clip. */
+  /** Longest the splash may stay up, whatever happens. */
   const SAFETY_MS = 8000;
-  /** The clip is longer than an intro should be; it is stopped here, fading out. */
+  /** How long the swim plays before the splash fades. */
   const CLIP_MS = 6000;
-  /** The short intro on later launches stops the clip early. */
+  /** The same length on later launches. */
   const SHORT_MS = 6000;
 
   let still = $state(false);
   let leaving = $state(false);
-  let failed = $state(false);
   let showName = $state(false);
   let version = $state("");
   let finished = false;
@@ -39,6 +41,18 @@
     void api.appInfo().then((info) => (version = info.version)).catch(() => {});
     still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const timers: number[] = [window.setTimeout(finish, SAFETY_MS)];
+    let raf = 0;
+    if (!still) {
+      const start = performance.now();
+      const tick = (now: number) => {
+        const t = (now - start) / 1000;
+        // Calm the wings over the last 1.2 seconds so the ray settles as the splash fades.
+        const settle = Math.max(0, (t - (CLIP_MS / 1000 - 1.2)) / 1.2);
+        frame = renderFrame(t, settle);
+        if (!finished) raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+    }
     const nameAt = window.setTimeout(() => (showName = true), still ? 0 : 1800);
     timers.push(nameAt);
     if (still) {
@@ -51,14 +65,12 @@
         })
         .catch(() => {});
     }
-    return () => timers.forEach((t) => window.clearTimeout(t));
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t));
+      cancelAnimationFrame(raf);
+    };
   });
 
-  function videoFailed() {
-    failed = true;
-    showName = true;
-    window.setTimeout(finish, REDUCED_HOLD_MS);
-  }
 </script>
 
 <svelte:head>
@@ -85,11 +97,23 @@
   }}
   style:transition-duration="{FADE_OUT_MS}ms"
 >
-  {#if still || failed}
-    <img class="frame" src="/splash-still.jpg" alt="" />
-  {:else}
-    <img class="frame" src="/splash.webp" alt="" onerror={videoFailed} />
-  {/if}
+    <svg class="frame" viewBox="-80 150 1160 652" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="rg1" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#e879f9" stop-opacity="0" /><stop offset="35%" stop-color="#c026d3" stop-opacity="0.55" /><stop offset="70%" stop-color="#7c3aed" stop-opacity="0.35" /><stop offset="100%" stop-color="#4f46e5" stop-opacity="0" /></linearGradient>
+        <linearGradient id="rg2" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#a855f7" stop-opacity="0" /><stop offset="45%" stop-color="#e879f9" stop-opacity="0.45" /><stop offset="80%" stop-color="#9333ea" stop-opacity="0.2" /><stop offset="100%" stop-color="#6d28d9" stop-opacity="0" /></linearGradient>
+        <radialGradient id="aura" cx="50%" cy="50%" r="50%"><stop offset="0%" stop-color="#c026d3" stop-opacity="0.25" /><stop offset="55%" stop-color="#6d28d9" stop-opacity="0.08" /><stop offset="100%" stop-color="#000000" stop-opacity="0" /></radialGradient>
+      </defs>
+      <rect x="-80" y="150" width="1160" height="652" fill="#06040d" />
+      <ellipse cx="500" cy="500" rx="340" ry="270" fill="url(#aura)" />
+      <path d={frame.ribbons[0]} fill="none" stroke="url(#rg1)" stroke-width="14" stroke-linecap="round" />
+      <path d={frame.ribbons[1]} fill="none" stroke="url(#rg2)" stroke-width="9" stroke-linecap="round" />
+      <path d={frame.ribbons[2]} fill="none" stroke="url(#rg1)" stroke-width="5" stroke-linecap="round" />
+      {#each facetSlots as i (i)}
+        {@const f = frame.facets[i]}
+        <path d={f.d} fill={f.fill} stroke={f.stroke} stroke-width="0.9" stroke-linejoin="round" />
+      {/each}
+      <path d={frame.ribbons[3]} fill="none" stroke="url(#rg2)" stroke-width="3.5" stroke-linecap="round" />
+    </svg>
   <div class="name" class:shown={showName}>
     <h1>Stingray</h1>
     <p>Your files, your clouds, your servers. One window.</p>
@@ -118,11 +142,6 @@
     width: 100%;
     height: 100%;
     object-fit: cover;
-  }
-  .frame.still {
-    object-fit: contain;
-    padding: 40px 0 90px;
-    box-sizing: border-box;
   }
   /* A soft shade at the bottom keeps the name readable over the clip. */
   .splash::after {
