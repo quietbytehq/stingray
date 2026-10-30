@@ -1,0 +1,94 @@
+# Snap package for Stingray File Manager.
+#
+# Built from the .deb that `tauri build` produces (CI builds the deb first, then runs snapcraft),
+# so the snap holds exactly the same binaries as the other Linux packages: the stingray executable
+# and the bundled stingray-rclone next to it. The gnome extension supplies GTK and WebKitGTK.
+name: stingray
+title: Stingray File Manager
+base: core24
+version: "1.5.1"
+summary: A modern file manager for your folders, cloud drives and servers
+description: |
+  Stingray puts your folders, your cloud drives and your servers in one clean window.
+
+  * Google Drive, OneDrive and Dropbox in the sidebar, several accounts per service, with a
+    connection light for each: green when connected, amber when slow, red when not reachable.
+  * Network drives over SMB and SFTP.
+  * Drag and drop between any two places: a local folder, a cloud drive, a server.
+  * Copy, cut and paste, rename, new folder, move to Trash, search, icon and list views,
+    picture thumbnails, and four icon themes.
+
+  It bundles rclone and runs it in the background; you never configure rclone yourself.
+  NFS shares are not available in the snap; use the .deb or AppImage for those.
+license: Apache-2.0
+grade: stable
+confinement: strict
+compression: lzo
+website: https://github.com/quietbytehq/stingray
+source-code: https://github.com/quietbytehq/stingray
+issues: https://github.com/quietbytehq/stingray/issues
+contact: quietbyte.2026@gmail.com
+icon: assets/logo/stingray-1024.png
+
+platforms:
+  amd64:
+
+# Only one Stingray runs at a time: a second launch hands over to the first over the session bus.
+slots:
+  single-instance:
+    interface: dbus
+    bus: session
+    name: com.quietbyte.stingray.SingleInstance
+
+plugs:
+  # Move to Trash writes to ~/.local/share/Trash. This needs a store approval, requested on the
+  # Snapcraft forum; until then moving to Trash may fail inside the snap.
+  dot-local-share-trash:
+    interface: personal-files
+    write:
+      - $HOME/.local/share/Trash
+
+apps:
+  stingray:
+    command: usr/bin/stingray
+    desktop: usr/share/applications/stingray.desktop
+    extensions: [gnome]
+    slots: [single-instance]
+    plugs:
+      - network
+      - network-bind
+      - home
+      - removable-media
+      - mount-observe
+      - dot-local-share-trash
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - gsettings
+      - opengl
+    environment:
+      PATH: $SNAP/usr/bin:$SNAP/bin:$PATH
+      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+
+parts:
+  stingray:
+    plugin: dump
+    # The .deb from `npm run bundle:linux` (or the stingray-linux-x86_64 CI artifact).
+    source: dist/stingray_1.5.1_amd64.deb
+    source-type: deb
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+    override-build: |
+      craftctl default
+      # Tauri names the desktop entry after the product name, with spaces; the snap wants a fixed
+      # name, and the Exec line must call the snap's command.
+      apps="$CRAFT_PART_INSTALL/usr/share/applications"
+      if [ -f "$apps/Stingray File Manager.desktop" ]; then
+        mv "$apps/Stingray File Manager.desktop" "$apps/stingray.desktop"
+      fi
+      sed -i 's|^Exec=.*|Exec=stingray %U|; s|^Icon=.*|Icon=${SNAP}/usr/share/icons/hicolor/128x128/apps/stingray.png|' "$apps/stingray.desktop"
+    prime:
+      - -usr/share/doc
+      - -usr/share/man

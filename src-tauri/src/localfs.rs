@@ -28,10 +28,19 @@ fn place(kind: &str, label: &str, path: Option<PathBuf>) -> Option<Place> {
     })
 }
 
+/// The person's real home folder. Inside a snap, `$HOME` points at the snap's private folder
+/// (~/snap/<name>/<revision>), so the real one comes from `SNAP_REAL_HOME` when it is set.
+pub fn real_home() -> Option<PathBuf> {
+    std::env::var_os("SNAP_REAL_HOME")
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
+        .or_else(dirs::home_dir)
+}
+
 /// The trash folder of the current user, when the desktop keeps one we can show.
 fn trash_dir() -> Option<PathBuf> {
     if cfg!(target_os = "linux") {
-        dirs::data_local_dir().map(|dir| dir.join("Trash").join("files"))
+        real_home().map(|home| home.join(".local").join("share").join("Trash").join("files"))
     } else {
         None
     }
@@ -64,7 +73,7 @@ fn volumes() -> Vec<Place> {
 #[tauri::command]
 pub fn home_places() -> Vec<Place> {
     let mut places: Vec<Place> = [
-        place("home", "Home", dirs::home_dir()),
+        place("home", "Home", real_home()),
         place("desktop", "Desktop", dirs::desktop_dir()),
         place("documents", "Documents", dirs::document_dir()),
         place("downloads", "Downloads", dirs::download_dir()),

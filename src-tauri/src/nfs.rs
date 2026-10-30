@@ -88,7 +88,7 @@ pub fn source(share: &NfsShare) -> String {
 
 /// Folder a share is connected at on Linux: ~/NFS/<name>.
 fn linux_mount_point(name: &str) -> Option<PathBuf> {
-    dirs::home_dir().map(|home| home.join("NFS").join(name))
+    crate::localfs::real_home().map(|home| home.join("NFS").join(name))
 }
 
 /// Finds where `source` is mounted, reading /proc/mounts on Linux.
