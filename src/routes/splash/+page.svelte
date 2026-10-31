@@ -15,9 +15,9 @@
   /** Longest the splash may stay up, whatever happens. */
   const SAFETY_MS = 8000;
   /** How long the swim plays before the splash fades. */
-  const CLIP_MS = 6000;
+  const CLIP_MS = 4000;
   /** The same length on later launches. */
-  const SHORT_MS = 6000;
+  const SHORT_MS = 4000;
 
   let still = $state(false);
   let leaving = $state(false);
@@ -53,7 +53,7 @@
       };
       raf = requestAnimationFrame(tick);
     }
-    const nameAt = window.setTimeout(() => (showName = true), still ? 0 : 1800);
+    const nameAt = window.setTimeout(() => (showName = true), still ? 0 : 1200);
     timers.push(nameAt);
     if (still) {
       timers.push(window.setTimeout(finish, REDUCED_HOLD_MS));
