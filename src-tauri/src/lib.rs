@@ -102,6 +102,16 @@ pub fn run() {
             app.manage(queue);
             app.manage(supervisor);
             app.manage(paths);
+            // Thumbnails load pictures through the asset protocol. Its scope in tauri.conf.json is
+            // $HOME, which inside a snap is the snap's private folder, so allow the real home
+            // folder and mounted drives here.
+            let scope = app.asset_protocol_scope();
+            if let Some(home) = localfs::real_home() {
+                let _ = scope.allow_directory(&home, true);
+            }
+            for dir in ["/media", "/run/media", "/mnt"] {
+                let _ = scope.allow_directory(dir, true);
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
