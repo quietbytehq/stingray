@@ -133,7 +133,13 @@ impl Settings {
         if !(Self::MIN_ICON..=Self::MAX_ICON).contains(&self.icon_size) {
             return Err(AppError::invalid("Icon size must be between 32 and 128."));
         }
-        if !["stingray", "fluent", "cupertino", "outline"].contains(&self.icon_theme.as_str()) {
+        let theme = self.icon_theme.as_str();
+        let built_in = ["stingray", "fluent", "cupertino", "outline"].contains(&theme);
+        let pack = theme
+            .strip_prefix("pack:")
+            .or_else(|| theme.strip_prefix("system:"))
+            .is_some_and(|id| !id.is_empty() && !id.contains('/') && !id.contains(".."));
+        if !built_in && !pack {
             return Err(AppError::invalid("That icon theme isn't available."));
         }
         Ok(())
@@ -234,6 +240,10 @@ mod tests {
         assert!(settings.validate().is_err());
         settings.icon_size = 64;
         settings.icon_theme = "neon".into();
+        assert!(settings.validate().is_err());
+        settings.icon_theme = "pack:papirus".into();
+        assert!(settings.validate().is_ok());
+        settings.icon_theme = "system:../x".into();
         assert!(settings.validate().is_err());
         settings.icon_theme = "fluent".into();
         assert!(settings.validate().is_ok());

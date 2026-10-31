@@ -22,3 +22,13 @@ This product bundles third-party software:
 
 - Great Vibes font (static/fonts/GreatVibes-Regular.ttf), Copyright 2015 The Great Vibes Pro
   Project Authors, SIL Open Font License 1.1 (static/fonts/LICENSE-GreatVibes.txt).
+
+- Icon packs in static/icon-packs, each a selection of icons from a GPL-3.0 icon theme,
+  shipped unmodified with its licence (static/icon-packs/<pack>/LICENSE):
+  - Candy by EliverLara, https://github.com/EliverLara/candy-icons
+  - Kora by bikass, https://github.com/bikass/kora
+  - Newaita Reborn by cbrnix, https://github.com/cbrnix/Newaita-reborn
+  - Papirus by Papirus Development Team, https://github.com/PapirusDevelopmentTeam/papirus-icon-theme
+  - WhiteSur by Vince Liuice, https://github.com/vinceliuice/WhiteSur-icon-theme
+  - Nordzy by alvatip, https://github.com/alvatip/Nordzy-icon
+  - Gruvbox Plus by SylEleuth, https://github.com/SylEleuth/gruvbox-plus-icon-pack

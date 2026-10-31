@@ -4,6 +4,7 @@
   import { transfers } from "$lib/stores/transfers.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import { text } from "$lib/text/index.svelte";
+  import { iconThemes } from "$lib/stores/iconThemes.svelte";
 
   let { children } = $props();
 
@@ -12,6 +13,7 @@
     void rcd.start();
     void transfers.start();
     void settings.load();
+    void iconThemes.start();
   });
 </script>
 

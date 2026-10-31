@@ -14,6 +14,7 @@
   import { convertFileSrc } from "@tauri-apps/api/core";
   import { fileKind, type FileKind } from "$lib/util/filekind";
   import { settings } from "$lib/stores/settings.svelte";
+  import { iconThemes } from "$lib/stores/iconThemes.svelte";
 
   /**
    * File and folder icons, drawn as SVG so they stay sharp at every size. Four themes share one
@@ -27,17 +28,23 @@
     localPath = null,
     special = null,
     theme = null,
+    dark = null,
   }: {
     name: string;
     isDir: boolean;
     size?: number;
     localPath?: string | null;
     special?: SpecialFolder | null;
-    /** Overrides the theme from settings, for previews. */
-    theme?: IconTheme | null;
+    /** Overrides the theme from settings, for previews ("pack:<id>" and "system:<id>" too). */
+    theme?: string | null;
+    /** Overrides light/dark for previews of packs with both variants. */
+    dark?: boolean | null;
   } = $props();
 
-  const t = $derived<IconTheme>((theme ?? (settings.value?.iconTheme as IconTheme | undefined) ?? "stingray") as IconTheme);
+  /** The chosen theme: a built-in one, or a pack or installed theme drawn from image files. */
+  const chosen = $derived(theme ?? settings.value?.iconTheme ?? "stingray");
+  const external = $derived(chosen.startsWith("pack:") || chosen.startsWith("system:"));
+  const t = $derived<IconTheme>((external ? "stingray" : chosen) as IconTheme);
   const kind = $derived<FileKind>(fileKind(name, isDir));
   const uid = $props.id();
 
@@ -76,6 +83,11 @@
   function g(colour: string): string {
     return multi ? colour : folder.glyph;
   }
+
+  /** Pack key for this icon: a home folder, any folder, or the file's kind. */
+  const packKey = $derived(special ?? (isDir ? "folder" : kind === "folder" ? "folder" : kind));
+  const packUrl = $derived(external ? iconThemes.url(chosen, packKey, dark ?? iconThemes.dark) : null);
+  let packFailed = $state(false);
 
   const THUMB_EXT = new Set(["png", "jpg", "jpeg", "gif", "webp", "bmp", "avif", "svg"]);
   const canThumb = $derived(
@@ -163,6 +175,8 @@
   <span class="thumb" style:width="{size}px" style:height="{size}px">
     <img src={thumb} alt="" loading="lazy" decoding="async" onerror={() => (thumbFailed = true)} />
   </span>
+{:else if packUrl && !packFailed}
+  <img class="pack" src={packUrl} alt="" width={size} height={size} draggable="false" onerror={() => (packFailed = true)} />
 {:else if special === "trash"}
   <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" class={t}>
     <defs>
@@ -225,6 +239,13 @@
   svg.fluent,
   svg.cupertino {
     filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.2));
+  }
+  .pack {
+    display: block;
+    flex: none;
+    object-fit: contain;
+    box-shadow: none;
+    border-radius: 0;
   }
   .thumb {
     display: grid;

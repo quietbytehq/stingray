@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.6.0 (unreleased)
+
+- Icon theme picker in Settings → Appearance: a list of names with a large preview (light and
+  dark side by side for packs that have both) and an Apply button.
+- Seven bundled icon packs: Candy, Kora, Newaita Reborn, Papirus, WhiteSur, Nordzy and Gruvbox Plus
+  (GPL-3.0, with credits). Packs with light and dark variants follow the light/dark mode.
+- Icon themes installed on this computer (Linux) are listed and can be used too.
+- Splash shortened to 4 seconds. In the snap, Home now shows your real home folder.
+
 ## 1.4.0 (unreleased)
 
 - New splash: a short clip of the stingray swimming, with the name fading in over it. Plays for six

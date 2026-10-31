@@ -1,6 +1,7 @@
 mod commands;
 pub mod error;
 pub mod files;
+pub mod icon_themes;
 pub mod localfs;
 pub mod nfs;
 pub mod paths;
@@ -145,6 +146,8 @@ pub fn run() {
             files::commands::cancel_transfer,
             files::commands::clear_finished_transfers,
             localfs::home_places,
+            icon_themes::list_system_icon_themes,
+            icon_themes::system_icon_theme_icons,
             localfs::list_local,
             localfs::local_create_folder,
             localfs::local_rename,

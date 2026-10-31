@@ -9,7 +9,7 @@
   import { formatBytes } from "$lib/util/format";
   import { Network, Plus, Server, Terminal, X } from "$lib/icons";
   import BrandIcon from "./BrandIcon.svelte";
-  import FileIcon, { ICON_THEMES } from "./FileIcon.svelte";
+  import IconThemePicker from "./IconThemePicker.svelte";
   import ErrorNote from "./ErrorNote.svelte";
   import RemoteWizard from "./RemoteWizard.svelte";
 
@@ -325,33 +325,14 @@
             </p>
           </div>
           <p class="credits">
-            Apache License 2.0. Built with Tauri and Svelte. Cloud and network drives by rclone. Icons by Lucide.
+            Apache License 2.0. Built with Tauri and Svelte. Bundled icon packs (Candy, Kora, Newaita Reborn, Papirus, WhiteSur, Nordzy, Gruvbox Plus) are by their authors under GPL-3.0; see each pack in Settings. Cloud and network drives by rclone. Icons by Lucide.
             Google Drive, OneDrive and Dropbox logos belong to their owners and are shown only to identify each service.
           </p>
         </div>
       {:else if tab === "appearance"}
         <div class="field">
           <span class="field-label">Icon theme</span>
-          <div class="themes" role="radiogroup" aria-label="Icon theme">
-            {#each ICON_THEMES as theme (theme.id)}
-              <button
-                type="button"
-                class="theme"
-                role="radio"
-                aria-checked={(settings.value?.iconTheme ?? "stingray") === theme.id}
-                onclick={() => void settings.patch({ iconTheme: theme.id })}
-              >
-                <span class="preview">
-                  <FileIcon name="" isDir={true} size={34} theme={theme.id} />
-                  <FileIcon name="" isDir={true} size={34} special="pictures" theme={theme.id} />
-                  <FileIcon name="a.pdf" isDir={false} size={34} theme={theme.id} />
-                  <FileIcon name="a.mp4" isDir={false} size={34} theme={theme.id} />
-                </span>
-                <strong>{theme.label}</strong>
-                <span class="note">{theme.note}</span>
-              </button>
-            {/each}
-          </div>
+          <IconThemePicker />
         </div>
         <div class="field">
           <span class="field-label">Mode</span>
@@ -410,8 +391,8 @@
   .window {
     display: grid;
     grid-template-columns: 180px 1fr;
-    width: min(820px, calc(100vw - 48px));
-    height: min(600px, calc(100vh - 48px));
+    width: min(920px, calc(100vw - 48px));
+    height: min(640px, calc(100vh - 48px));
     border-radius: 14px;
     overflow: hidden;
     background: var(--window-bg);
@@ -728,35 +709,6 @@
     width: 16px;
     height: 16px;
     accent-color: var(--accent);
-  }
-  .themes {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
-  }
-  .theme {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    padding: 12px;
-    border: 2px solid transparent;
-    border-radius: 12px;
-    background: var(--control-bg);
-    text-align: left;
-    cursor: pointer;
-  }
-  .theme[aria-checked="true"] {
-    border-color: var(--accent);
-  }
-  .preview {
-    display: flex;
-    gap: 8px;
-    margin-bottom: 8px;
-  }
-  .note {
-    font-size: 12px;
-    color: var(--text-secondary);
   }
   .hint {
     margin: 6px 0 0;
