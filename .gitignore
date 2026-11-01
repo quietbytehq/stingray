@@ -17,3 +17,7 @@ target/
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 src/.svelte-kit/
+
+# Built packages
+*.snap
+dist/
