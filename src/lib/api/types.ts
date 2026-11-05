@@ -220,6 +220,9 @@ export interface Settings {
   /** Icon size in the icon view, 32 to 128 px. */
   iconSize: number;
   showThumbnails: boolean;
+  /** Closing the window keeps Stingray in the tray. */
+  keepRunning: boolean;
+  lastBootId: string | null;
   /** Your own label and badge colour per account, keyed by connection name. */
   accounts: Record<string, AccountLook>;
 }

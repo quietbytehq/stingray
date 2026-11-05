@@ -374,6 +374,51 @@
           </label>
           <p class="hint">When off, pictures show their file icon. Turning this off makes big folders of photos open faster.</p>
         </div>
+        <div class="field">
+          <label class="toggle">
+            <input
+              type="checkbox"
+              checked={settings.value?.keepRunning ?? true}
+              onchange={(e) => void settings.patch({ keepRunning: (e.currentTarget as HTMLInputElement).checked })}
+            />
+            <span>Keep Stingray running in the background when its window is closed</span>
+          </label>
+          <p class="hint">Stingray stays in the tray and opens instantly. Right-click its tray icon and choose Exit to quit.</p>
+        </div>
+        <div class="field">
+          <label class="toggle">
+            <input
+              type="checkbox"
+              checked={settings.value?.startOnLogin ?? false}
+              onchange={async (e) => {
+                const on = (e.currentTarget as HTMLInputElement).checked;
+                try {
+                  await api.setStartAtLogin(on);
+                  await settings.patch({ startOnLogin: on });
+                } catch (err) {
+                  error = asAppError(err);
+                }
+              }}
+            />
+            <span>Start Stingray in the background when I log in</span>
+          </label>
+        </div>
+        <div class="field">
+          <span class="field-label">Default file manager</span>
+          {#await api.defaultFileManager() then fm}
+            {#if fm.isDefault}
+              <p class="hint">Stingray opens folders for the whole desktop.</p>
+              {#if !fm.command}
+                <button type="button" class="button" onclick={() => void api.setDefaultFileManager(true).then(() => (tab = "appearance"))}>Use Ubuntu's Files instead</button>
+              {/if}
+            {:else if fm.command}
+              <p class="hint">Run this once in a terminal to make Stingray open folders:</p>
+              <code class="cmd">{fm.command}</code>
+            {:else}
+              <button type="button" class="button primary" onclick={() => void api.setDefaultFileManager(false).then(() => (tab = "appearance"))}>Make Stingray the default</button>
+            {/if}
+          {/await}
+        </div>
       {/if}
     </section>
   </div>
@@ -709,6 +754,15 @@
     width: 16px;
     height: 16px;
     accent-color: var(--accent);
+  }
+  .cmd {
+    display: block;
+    padding: 6px 8px;
+    border-radius: 6px;
+    background: var(--control-bg);
+    font-size: 12px;
+    user-select: all;
+    -webkit-user-select: all;
   }
   .hint {
     margin: 6px 0 0;

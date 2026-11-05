@@ -22,6 +22,10 @@ pub struct Settings {
     pub last_splash_version: Option<String>,
     /// Register Stingray to start when the user signs in. It then starts minimized to the tray.
     pub start_on_login: bool,
+    /// Closing the window keeps Stingray in the tray instead of quitting.
+    pub keep_running: bool,
+    /// The boot the splash last played in; it plays once per boot.
+    pub last_boot_id: Option<String>,
     /// Icon set for files and folders: "stingray", "fluent", "cupertino" or "outline".
     pub icon_theme: String,
     /// Icon size in the icon view, in pixels.
@@ -111,6 +115,8 @@ impl Default for Settings {
             splash: SplashMode::Short,
             last_splash_version: None,
             start_on_login: false,
+            keep_running: true,
+            last_boot_id: None,
             icon_theme: "stingray".into(),
             icon_size: 56,
             show_thumbnails: true,
@@ -219,6 +225,8 @@ mod tests {
             splash: SplashMode::Off,
             last_splash_version: Some("0.2.0".into()),
             start_on_login: true,
+            keep_running: false,
+            last_boot_id: Some("b1".into()),
             icon_theme: "outline".into(),
             icon_size: 96,
             show_thumbnails: false,

@@ -1,4 +1,5 @@
 mod commands;
+pub mod desktop;
 pub mod error;
 pub mod files;
 pub mod icon_themes;
@@ -28,6 +29,7 @@ pub const TRANSFERS_EVENT: &str = "transfers://update";
 
 /// Closes the splash and shows the main window.
 pub fn reveal_main_window(app: &AppHandle) {
+    desktop::mark_shown(app);
     if let Some(splash) = app.get_webview_window("splash") {
         let _ = splash.close();
     }
@@ -43,7 +45,7 @@ fn on_rcd_change(app: &AppHandle, state: &RcdState) {
     if matches!(state, RcdState::Healthy { .. } | RcdState::Failed { .. }) {
         let reveal = app.state::<RevealState>();
         let ready = reveal.0.lock().expect("reveal lock").rclone_settled();
-        if ready {
+        if ready && !desktop::started_in_background(app) {
             reveal_main_window(app);
         }
     }
@@ -52,8 +54,8 @@ fn on_rcd_change(app: &AppHandle, state: &RcdState) {
 pub fn run() {
     let app = tauri::Builder::default()
         // Must come first: a second launch focuses the running Stingray and exits.
-        .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            reveal_main_window(app);
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            desktop::open_path(app, desktop::first_path(&args));
         }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
@@ -69,7 +71,29 @@ pub fn run() {
             });
             let spec = rclone::spec_for(&paths, &settings);
             let app_version = app.package_info().version.to_string();
-            let splash_plan = settings.splash_plan(&app_version);
+            let args: Vec<String> = std::env::args().collect();
+            let background = args.iter().any(|a| a == "--background");
+            let mut splash_plan = settings.splash_plan(&app_version);
+            // The splash plays once per boot (and always after an update); later launches open at once.
+            let boot = system::boot_id();
+            if background
+                || (!boot.is_empty()
+                    && settings.last_boot_id.as_deref() == Some(boot.as_str())
+                    && splash_plan != settings::SplashPlan::Full)
+            {
+                splash_plan = settings::SplashPlan::Off;
+            }
+            if !boot.is_empty() && !background && settings.last_boot_id.as_deref() != Some(boot.as_str()) {
+                settings.last_boot_id = Some(boot);
+                if let Err(err) = settings::save(&paths.settings(), &settings) {
+                    eprintln!("Stingray: could not save settings: {err}");
+                }
+            }
+            app.manage(desktop::BackgroundStart(AtomicBool::new(background)));
+            app.manage(desktop::InitialPath(Mutex::new(desktop::first_path(&args))));
+            if let Err(err) = desktop::setup_tray(app.handle()) {
+                eprintln!("Stingray: no tray icon on this desktop: {err}");
+            }
             if splash_plan == settings::SplashPlan::Full {
                 // Remember that this version has shown its full intro, so the next launch is short.
                 settings.last_splash_version = Some(app_version);
@@ -122,7 +146,9 @@ pub fn run() {
             if let WindowEvent::CloseRequested { api, .. } = event {
                 // Closing the main window quits, but asks first when transfers are running.
                 api.prevent_close();
-                quit::request(window.app_handle());
+                if !desktop::keep_in_background(window.app_handle()) {
+                    quit::request(window.app_handle());
+                }
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -130,6 +156,8 @@ pub fn run() {
             commands::restart_rcd,
             commands::splash_finished,
             commands::get_splash_plan,
+            desktop::take_initial_path,
+            desktop::set_start_at_login,
             commands::app_info,
             commands::get_settings,
             commands::save_settings,

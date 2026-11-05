@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.8.0 (unreleased)
+
+- Devices in the sidebar: every drive and partition (Windows disks too), mounted on click, with eject.
+- Full right-click menu: Open With, Move to, Copy to, Paste Into Folder, Compress, Email, Star,
+  Properties.
+- Arrange by name, size, type or modified, ascending or descending, folders first; click a list
+  column to sort.
+- Recent and Starred; a status bar showing what is selected and its size.
+- Keeps running in the tray when closed (Show / Exit), optional start at login.
+- The splash plays once per boot. Opens folders handed over by other apps, and can become the
+  default file manager.
+- All 18 icon packs.
+
 ## 1.6.0 (unreleased)
 
 - Icon theme picker in Settings → Appearance: a list of names with a large preview (light and

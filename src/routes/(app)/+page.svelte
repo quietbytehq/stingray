@@ -34,6 +34,9 @@
   import { open as pickFolder } from "@tauri-apps/plugin-dialog";
   import type { Drive } from "$lib/api/types";
   import { formatBytes } from "$lib/util/format";
+  import { listen } from "@tauri-apps/api/event";
+  import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
+  import type { DefaultFm } from "$lib/api/types";
 
   // ---- Where we are -------------------------------------------------------------------------
   let loc = $state<Location>({ kind: "local", path: "/" });
@@ -64,6 +67,22 @@
   /** Recent and Starred are lists, not folders; while one is shown it replaces the folder listing. */
   let virtualView = $state<null | "recent" | "starred">(null);
   let openWithPath = $state<string | null>(null);
+  let askDefault = $state<DefaultFm | null>(null);
+
+  /** Opens a folder handed over by another app or a second launch; a file opens its folder, selected. */
+  async function openGivenPath(path: string) {
+    try {
+      const info = await api.fileProperties(path);
+      if (info.isDir) {
+        go({ kind: "local", path });
+      } else {
+        go({ kind: "local", path: info.location });
+        selected = new Set([path]);
+      }
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
   let propertiesPath = $state<string | null>(null);
   let showHidden = $state(false);
   let query = $state("");
@@ -471,9 +490,24 @@
   // ---- Start-up -----------------------------------------------------------------------------
   onMount(() => {
     let unlisten: (() => void) | undefined;
+    let stopOpenPath: (() => void) | undefined;
+    void listen<string>("desktop://open-path", (event) => void openGivenPath(event.payload)).then((stop) => (stopOpenPath = stop));
     void (async () => {
       await drives.start();
-      if (home) go({ kind: "local", path: home.path }, home.label, false);
+      const given = await api.takeInitialPath().catch(() => null);
+      if (given) await openGivenPath(given);
+      else if (home) go({ kind: "local", path: home.path }, home.label, false);
+      // First start: offer to become the default file manager (once, unless postponed).
+      let asked = false;
+      try {
+        asked = localStorage.getItem("stingray.askedDefault") === "1";
+      } catch {
+        asked = false;
+      }
+      if (!asked) {
+        const status = await api.defaultFileManager().catch(() => null);
+        if (status && !status.isDefault) askDefault = status;
+      }
     })();
     // Files dragged in from other apps arrive here with their real paths.
     getCurrentWebview()
@@ -503,6 +537,7 @@
       .catch(() => {});
     return () => {
       unlisten?.();
+      stopOpenPath?.();
       drives.stop();
     };
   });
@@ -661,6 +696,10 @@
       <p>Stingray's storage engine is still starting. Try again in a moment.</p>
     {/if}
   </Dialog>
+{/if}
+
+{#if askDefault}
+  <DefaultFmDialog status={askDefault} onClose={() => (askDefault = null)} />
 {/if}
 
 {#if openWithPath}
