@@ -28,6 +28,12 @@
   import { settings } from "$lib/stores/settings.svelte";
   import ErrorNote from "$lib/components/ErrorNote.svelte";
   import TransferPanel from "$lib/components/TransferPanel.svelte";
+  import OpenWithDialog from "$lib/components/OpenWithDialog.svelte";
+  import PropertiesDialog from "$lib/components/PropertiesDialog.svelte";
+  import { viewPrefs, type SortKey } from "$lib/stores/viewPrefs.svelte";
+  import { open as pickFolder } from "@tauri-apps/plugin-dialog";
+  import type { Drive } from "$lib/api/types";
+  import { formatBytes } from "$lib/util/format";
 
   // ---- Where we are -------------------------------------------------------------------------
   let loc = $state<Location>({ kind: "local", path: "/" });
@@ -55,6 +61,10 @@
   let notice = $state<string | null>(null);
 
   let mode = $state<"grid" | "list">("grid");
+  /** Recent and Starred are lists, not folders; while one is shown it replaces the folder listing. */
+  let virtualView = $state<null | "recent" | "starred">(null);
+  let openWithPath = $state<string | null>(null);
+  let propertiesPath = $state<string | null>(null);
   let showHidden = $state(false);
   let query = $state("");
   let selected = $state<Set<string>>(new Set());
@@ -75,13 +85,36 @@
     return entries
       .filter((e) => showHidden || !e.name.startsWith("."))
       .filter((e) => q === "" || e.name.toLowerCase().includes(q))
-      .sort((a, b) => Number(b.isDir) - Number(a.isDir) || a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+      .sort(viewPrefs.compare);
   });
 
   const trail = $derived(
-    crumbs(loc, rootLabel, loc.kind === "local" && home ? { path: home.path, label: home.label } : undefined),
+    virtualView
+      ? [{ label: virtualView === "recent" ? "Recent" : "Starred", loc }]
+      : crumbs(loc, rootLabel, loc.kind === "local" && home ? { path: home.path, label: home.label } : undefined),
   );
   const selectedEntries = $derived(visible.filter((e) => selected.has(e.path)));
+
+  /** Like Ubuntu's Files: “name” selected (size), or N items selected (total). */
+  let folderCount = $state<number | null>(null);
+  $effect(() => {
+    folderCount = null;
+    const only = selectedEntries.length === 1 ? selectedEntries[0] : null;
+    if (only?.isDir && loc.kind === "local") {
+      api.listLocal(only.path).then((items) => (folderCount = items.length)).catch(() => {});
+    }
+  });
+  const statusText = $derived.by(() => {
+    const n = selectedEntries.length;
+    if (n === 0) return `${visible.length} ${visible.length === 1 ? "item" : "items"}`;
+    if (n === 1) {
+      const e = selectedEntries[0];
+      if (e.isDir) return folderCount === null ? `“${e.name}” selected` : `“${e.name}” selected (containing ${folderCount} ${folderCount === 1 ? "item" : "items"})`;
+      return `“${e.name}” selected${e.size >= 0 ? ` (${formatBytes(e.size)})` : ""}`;
+    }
+    const total = selectedEntries.filter((e) => !e.isDir && e.size >= 0).reduce((t, e) => t + e.size, 0);
+    return `${n} items selected${total ? ` (${formatBytes(total)})` : ""}`;
+  });
 
   // ---- Loading ------------------------------------------------------------------------------
   let loadToken = 0;
@@ -90,8 +123,11 @@
     loading = true;
     error = null;
     try {
-      const result =
-        loc.kind === "local" ? await api.listLocal(loc.path) : await api.listFiles(loc.remote, loc.path);
+      const result = virtualView
+        ? await virtualEntries(virtualView)
+        : loc.kind === "local"
+          ? await api.listLocal(loc.path)
+          : await api.listFiles(loc.remote, loc.path);
       if (token !== loadToken) return;
       entries = result;
       if (loc.kind === "remote") drives.lights[loc.remote] = "connected";
@@ -105,8 +141,45 @@
     }
   }
 
+  /** Entries for Recent (files opened lately on this desktop) or Starred. */
+  async function virtualEntries(view: "recent" | "starred"): Promise<FileEntry[]> {
+    const name = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
+    if (view === "recent") {
+      const recent = await api.recentFiles();
+      return recent.map((r) => ({ name: name(r.path), path: r.path, isDir: false, size: -1, modTime: r.modified || null, mimeType: null }));
+    }
+    const out: FileEntry[] = [];
+    for (const path of viewPrefs.starred) {
+      try {
+        const p = await api.fileProperties(path);
+        out.push({ name: p.name, path, isDir: p.isDir, size: p.isDir ? -1 : p.size, modTime: p.modified, mimeType: null });
+      } catch {
+        // Moved or deleted since it was starred.
+      }
+    }
+    return out;
+  }
+
+  function showVirtual(view: "recent" | "starred") {
+    virtualView = view;
+    selected = new Set();
+    query = "";
+    void load();
+  }
+
+  async function openDrive(drive: Drive) {
+    try {
+      const at = drive.mountPoint ?? (await api.mountDrive(drive.device));
+      go({ kind: "local", path: at }, drive.label);
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
   function go(next: Location, label?: string, record = true) {
-    if (sameLocation(next, loc) && entries.length) return;
+    const wasVirtual = virtualView !== null;
+    virtualView = null;
+    if (!wasVirtual && sameLocation(next, loc) && entries.length) return;
     if (record) {
       back = [...back, { loc, label: rootLabel }];
       forward = [];
@@ -290,23 +363,69 @@
     menu = { x: event.clientX, y: event.clientY, items };
   }
 
+  /** Move to… / Copy to…: pick a folder on this computer, then transfer there. */
+  async function sendTo(items: FileEntry[], move: boolean) {
+    const target = await pickFolder({ directory: true, multiple: false, title: move ? "Move to…" : "Copy to…" }).catch(() => null);
+    if (typeof target !== "string") return;
+    await transfer({ from: loc, entries: items }, { kind: "local", path: target }, !move, move);
+  }
+
+  async function compressItems(items: FileEntry[]) {
+    const suggested = items.length === 1 ? items[0].name.replace(/\.[^.]+$/, "") : "Archive";
+    const name = window.prompt("Archive name", suggested);
+    if (!name) return;
+    try {
+      await api.compress(items.map((e) => e.path), name);
+      notice = `Created ${name.replace(/\.zip$/, "")}.zip`;
+      await load();
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
   function itemMenu(event: MouseEvent, entry: FileEntry) {
     const many = selected.size > 1;
     const items = many ? selectedEntries : [entry];
+    const local = loc.kind === "local";
+    const starred = items.every((e) => viewPrefs.isStarred(e.path));
     showMenu(event, [
-      { label: entry.isDir ? "Open" : loc.kind === "local" ? "Open" : "Download", action: () => void open(entry), disabled: many },
-      { label: "Rename…", action: () => (renaming = entry.path), disabled: many },
-      { label: "Copy", action: () => copySelection(false), separator: true },
-      { label: "Cut", action: () => copySelection(true) },
+      { label: entry.isDir ? "Open" : local ? "Open" : "Download", action: () => void open(entry), disabled: many },
+      { label: "Open With…", action: () => (openWithPath = entry.path), disabled: many || !local || entry.isDir },
+      { label: "Cut", action: () => copySelection(true), separator: true },
+      { label: "Copy", action: () => copySelection(false) },
+      { label: "Move to…", action: () => void sendTo(items, true) },
+      { label: "Copy to…", action: () => void sendTo(items, false) },
+      { label: "Rename…", action: () => (renaming = entry.path), disabled: many, separator: true },
+      {
+        label: "Paste Into Folder",
+        action: () => clipboard && void transfer(clipboard.payload, childOf(loc, entry), !clipboard.cut, clipboard.cut),
+        disabled: !clipboard || many || !entry.isDir,
+      },
+      { label: "Compress…", action: () => void compressItems(items), disabled: !local },
+      { label: "Email…", action: () => void api.emailFiles(items.map((e) => e.path)).catch((err) => (error = asAppError(err))), disabled: !local || items.some((e) => e.isDir) },
+      { label: starred ? "Remove from Starred" : "Star", action: () => { viewPrefs.toggleStar(items.map((e) => e.path)); if (virtualView === "starred") void load(); }, disabled: !local },
       { label: "Copy path", action: () => void copyPath(entry), disabled: many },
-      { label: loc.kind === "local" ? "Move to Trash" : "Delete…", destructive: true, separator: true, action: () => void remove(items) },
+      { label: local ? "Move to Trash" : "Delete…", destructive: true, separator: true, action: () => void remove(items) },
+      { label: "Properties", action: () => (propertiesPath = entry.path), disabled: many || !local, separator: true },
     ]);
   }
 
+  const SORT_LABELS: [SortKey, string][] = [["name", "Name"], ["size", "Size"], ["type", "Type"], ["modified", "Modified"]];
+  const tick = (on: boolean, label: string) => (on ? `✓  ${label}` : `     ${label}`);
+
   function backgroundMenu(event: MouseEvent) {
+    const s = viewPrefs.sort;
     showMenu(event, [
-      { label: "New folder", action: () => void newFolder() },
-      { label: "Paste", action: () => void paste(), disabled: !clipboard },
+      { label: "New folder", action: () => void newFolder(), disabled: virtualView !== null },
+      { label: "Paste", action: () => void paste(), disabled: !clipboard || virtualView !== null },
+      ...SORT_LABELS.map(([key, label], i) => ({
+        label: tick(s.key === key, `Arrange by ${label}`),
+        action: () => viewPrefs.setSort({ key }),
+        separator: i === 0,
+      })),
+      { label: tick(!s.descending, "Ascending"), action: () => viewPrefs.setSort({ descending: false }), separator: true },
+      { label: tick(s.descending, "Descending"), action: () => viewPrefs.setSort({ descending: true }) },
+      { label: tick(s.foldersFirst, "Folders first"), action: () => viewPrefs.setSort({ foldersFirst: !s.foldersFirst }) },
       { label: showHidden ? "Hide hidden files" : "Show hidden files", action: () => (showHidden = !showHidden), separator: true },
       { label: "Refresh", action: () => void load() },
     ]);
@@ -413,6 +532,9 @@
     onOpenNfs={(share) => void openNfs(share)}
     onMenu={showMenu}
     onSettings={(section) => (settingsAt = section ?? "accounts")}
+    virtual={virtualView}
+    onVirtual={showVirtual}
+    onOpenDrive={(drive) => void openDrive(drive)}
   />
 
   <section class="main">
@@ -480,6 +602,9 @@
     {:else}
       <FileView
         {loc}
+        sortKey={viewPrefs.sort.key}
+        sortDescending={viewPrefs.sort.descending}
+        onSort={(key) => viewPrefs.sortBy(key)}
         entries={visible}
         {mode}
         bind:selected
@@ -494,9 +619,7 @@
     {/if}
 
     <footer class="status">
-      <span>
-        {visible.length} {visible.length === 1 ? "item" : "items"}{selected.size ? `, ${selected.size} selected` : ""}
-      </span>
+      <span>{statusText}</span>
       {#if notice}<span class="notice" role="status">{notice}</span>{/if}
     </footer>
     <TransferPanel />
@@ -538,6 +661,14 @@
       <p>Stingray's storage engine is still starting. Try again in a moment.</p>
     {/if}
   </Dialog>
+{/if}
+
+{#if openWithPath}
+  <OpenWithDialog path={openWithPath} onClose={() => (openWithPath = null)} />
+{/if}
+
+{#if propertiesPath}
+  <PropertiesDialog path={propertiesPath} onClose={() => (propertiesPath = null)} />
 {/if}
 
 {#if settingsAt}

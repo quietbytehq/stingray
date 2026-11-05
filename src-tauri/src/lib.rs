@@ -10,6 +10,7 @@ pub mod rclone;
 pub mod remotes;
 mod reveal;
 pub mod settings;
+pub mod system;
 pub mod text;
 
 use files::transfers::{Item as TransferItem, TransferQueue};
@@ -156,6 +157,18 @@ pub fn run() {
             files::commands::cancel_transfer,
             files::commands::clear_finished_transfers,
             localfs::home_places,
+            system::list_drives,
+            system::mount_drive,
+            system::unmount_drive,
+            system::apps_for_file,
+            system::open_with,
+            system::compress,
+            system::email_files,
+            system::file_properties,
+            system::recent_files,
+            system::boot_id,
+            system::default_file_manager,
+            system::set_default_file_manager,
             icon_themes::list_system_icon_themes,
             icon_themes::system_icon_theme_icons,
             localfs::list_local,

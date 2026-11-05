@@ -13,6 +13,9 @@
     selected = $bindable(),
     renaming = null,
     iconSize = 56,
+    sortKey = "name",
+    sortDescending = false,
+    onSort = () => {},
     thumbnails = true,
     onOpen,
     onItemMenu,
@@ -25,6 +28,10 @@
     selected: Set<string>;
     /** Path of the item being renamed in place, if any. */
     renaming?: string | null;
+    /** Current sort, shown as an arrow on the list view's column headers. */
+    sortKey?: string;
+    sortDescending?: boolean;
+    onSort?: (key: "name" | "size" | "modified") => void;
     /** Icon size in the icon view, in pixels. */
     iconSize?: number;
     /** Show pictures as thumbnails rather than file icons. */
@@ -153,7 +160,15 @@
   {:else}
     <table>
       <thead>
-        <tr><th class="col-name">Name</th><th>Modified</th><th class="num">Size</th></tr>
+        <tr>
+          {#each [["name", "Name", "col-name"], ["modified", "Modified", ""], ["size", "Size", "num"]] as [key, label, cls] (key)}
+            <th class={cls}>
+              <button type="button" class="sort" onclick={() => onSort(key as "name" | "size" | "modified")}>
+                {label}{#if sortKey === key}<span aria-hidden="true">{sortDescending ? " ▼" : " ▲"}</span>{/if}
+              </button>
+            </th>
+          {/each}
+        </tr>
       </thead>
       <tbody>
         {#each entries as entry (entry.path)}
@@ -273,6 +288,17 @@
   }
   tbody tr.selected .muted {
     color: rgba(255, 255, 255, 0.85);
+  }
+  .sort {
+    border: none;
+    background: none;
+    padding: 0;
+    font: inherit;
+    color: inherit;
+    cursor: pointer;
+  }
+  .sort:hover {
+    color: var(--text-primary);
   }
   .col-name {
     width: 60%;

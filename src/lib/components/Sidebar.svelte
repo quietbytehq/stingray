@@ -4,6 +4,8 @@
   import { drives, CLOUD_PROVIDERS, CLOUD_TITLES, type CloudProvider, type Light } from "$lib/stores/drives.svelte";
   import BrandIcon from "./BrandIcon.svelte";
   import FileIcon, { type SpecialFolder } from "./FileIcon.svelte";
+  import { api } from "$lib/api";
+  import type { Drive } from "$lib/api/types";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { sameLocation, type Location } from "$lib/util/location";
   import {
@@ -22,6 +24,8 @@
     Settings,
     Terminal,
     Trash,
+    Clock,
+    Star,
   } from "$lib/icons";
   import type { MenuItem } from "./ContextMenu.svelte";
 
@@ -33,6 +37,9 @@
     onOpenNfs,
     onMenu,
     onSettings,
+    virtual = null,
+    onVirtual = () => {},
+    onOpenDrive = () => {},
   }: {
     current: Location;
     onNavigate: (loc: Location, label: string) => void;
@@ -42,6 +49,11 @@
     onMenu: (event: MouseEvent, items: MenuItem[]) => void;
     /** Opens Settings, optionally at a section ("accounts", "appearance"). */
     onSettings: (section?: string) => void;
+    /** Recent or Starred when one of them is showing. */
+    virtual?: "recent" | "starred" | null;
+    onVirtual?: (view: "recent" | "starred") => void;
+    /** Opens a drive from Devices, mounting it first if needed. */
+    onOpenDrive?: (drive: Drive) => void;
   } = $props();
 
   const PLACE_ICONS: Record<Place["kind"], Component> = {
@@ -64,7 +76,29 @@
   };
 
   const places = $derived(drives.places.filter((p) => p.kind !== "volume"));
-  const volumes = $derived(drives.places.filter((p) => p.kind === "volume"));
+  /** Drives and partitions (Devices), refreshed every few seconds so USB sticks appear. */
+  let disks = $state<Drive[]>([]);
+  async function refreshDisks() {
+    try {
+      disks = await api.listDrives();
+    } catch {
+      disks = [];
+    }
+  }
+  $effect(() => {
+    void refreshDisks();
+    const timer = window.setInterval(() => void refreshDisks(), 5000);
+    return () => window.clearInterval(timer);
+  });
+  async function eject(drive: Drive, event: MouseEvent) {
+    event.stopPropagation();
+    try {
+      await api.unmountDrive(drive.device, drive.removable);
+    } catch (err) {
+      window.alert((err as { message?: string })?.message ?? String(err));
+    }
+    void refreshDisks();
+  }
 
   function remoteLoc(remote: RemoteSummary): Location {
     return { kind: "remote", remote: remote.name, path: remote.startPath };
@@ -123,7 +157,7 @@
       <button
         type="button"
         class="item"
-        class:current={sameLocation(current, loc)}
+        class:current={!virtual && sameLocation(current, loc)}
         class:drop={drag.over === dropKey(loc)}
         data-drop={place.kind === "trash" ? undefined : dropKey(loc)}
         onclick={() => onNavigate(loc, place.label)}
@@ -132,13 +166,36 @@
         <span class="label">{place.label}</span>
       </button>
     {/each}
-    {#each volumes as place (place.path)}
-      {@const loc = { kind: "local" as const, path: place.path }}
-      <button type="button" class="item" class:current={sameLocation(current, loc)} class:drop={drag.over === dropKey(loc)} data-drop={dropKey(loc)} onclick={() => onNavigate(loc, place.label)}>
-        <HardDrive size={16} strokeWidth={1.75} aria-hidden="true" />
-        <span class="label">{place.label}</span>
-      </button>
-    {/each}
+    <button type="button" class="item" class:current={virtual === "recent"} onclick={() => onVirtual("recent")}>
+      <Clock size={16} strokeWidth={1.75} aria-hidden="true" />
+      <span class="label">Recent</span>
+    </button>
+    <button type="button" class="item" class:current={virtual === "starred"} onclick={() => onVirtual("starred")}>
+      <Star size={16} strokeWidth={1.75} aria-hidden="true" />
+      <span class="label">Starred</span>
+    </button>
+
+    {#if disks.length}
+      <h2>Devices</h2>
+      {#each disks as drive (drive.device)}
+        {@const loc = drive.mountPoint ? { kind: "local" as const, path: drive.mountPoint } : null}
+        <button
+          type="button"
+          class="item"
+          class:current={!virtual && loc !== null && sameLocation(current, loc)}
+          class:drop={loc !== null && drag.over === dropKey(loc)}
+          data-drop={loc ? dropKey(loc) : undefined}
+          title={`${drive.device}${drive.filesystem ? ` · ${drive.filesystem}` : ""}${drive.mountPoint ? "" : " · not mounted"}`}
+          onclick={() => onOpenDrive(drive)}
+        >
+          <HardDrive size={16} strokeWidth={1.75} aria-hidden="true" />
+          <span class="label">{drive.label}</span>
+          {#if drive.mountPoint && (drive.removable || drive.mountPoint.startsWith("/media") || drive.mountPoint.startsWith("/run/media"))}
+            <span class="eject" role="button" tabindex="-1" title={drive.removable ? "Eject" : "Unmount"} onclick={(e) => void eject(drive, e)} onkeydown={() => {}}>⏏</span>
+          {/if}
+        </button>
+      {/each}
+    {/if}
 
     <h2 class="with-action">
       Cloud
@@ -299,6 +356,17 @@
     width: 20px;
     height: 20px;
     flex: none;
+  }
+  .eject {
+    margin-left: auto;
+    padding: 0 4px;
+    border-radius: 4px;
+    color: var(--text-secondary);
+    font-size: 13px;
+  }
+  .eject:hover {
+    background: var(--control-bg-hover);
+    color: var(--text-primary);
   }
   .faded {
     display: inline-grid;

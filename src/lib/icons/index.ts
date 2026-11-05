@@ -53,6 +53,7 @@ import Search from "@lucide/svelte/icons/search";
 import LayoutGrid from "@lucide/svelte/icons/layout-grid";
 import List from "@lucide/svelte/icons/list";
 import Clock from "@lucide/svelte/icons/clock";
+import Star from "@lucide/svelte/icons/star";
 import Monitor from "@lucide/svelte/icons/monitor";
 import Music from "@lucide/svelte/icons/music";
 import Image from "@lucide/svelte/icons/image";
@@ -70,6 +71,7 @@ export {
   LayoutGrid,
   List,
   Clock,
+  Star,
   Monitor,
   Music,
   Image,

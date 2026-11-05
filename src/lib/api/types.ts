@@ -247,3 +247,49 @@ export interface OneDriveLibrary {
   /** The library this connection uses now. */
   current: boolean;
 }
+
+/** Mirrors `system::Drive`. */
+export interface Drive {
+  device: string;
+  label: string;
+  size: number;
+  filesystem: string;
+  mountPoint: string | null;
+  removable: boolean;
+}
+
+/** Mirrors `system::App`. */
+export interface OpenWithApp {
+  id: string;
+  name: string;
+  default: boolean;
+}
+
+/** Mirrors `system::Properties`. */
+export interface FileProperties {
+  name: string;
+  location: string;
+  isDir: boolean;
+  size: number;
+  items: number;
+  contentType: string;
+  modified: string | null;
+  accessed: string | null;
+  created: string | null;
+  permissions: string;
+  owner: string;
+}
+
+/** Mirrors `system::RecentFile`. */
+export interface RecentFile {
+  path: string;
+  modified: string;
+}
+
+/** Mirrors `system::DefaultFm`. */
+export interface DefaultFm {
+  current: string;
+  ours: string;
+  isDefault: boolean;
+  command: string | null;
+}

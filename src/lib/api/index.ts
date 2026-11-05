@@ -1,6 +1,11 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type {
+  DefaultFm,
+  Drive,
+  FileProperties,
+  OpenWithApp,
+  RecentFile,
   AccountInfo,
   OneDriveLibrary,
   AppError,
@@ -68,6 +73,18 @@ export const api = {
   clearFinishedTransfers: () => invoke<void>("clear_finished_transfers"),
 
   homePlaces: () => invoke<Place[]>("home_places"),
+  listDrives: () => invoke<Drive[]>("list_drives"),
+  mountDrive: (device: string) => invoke<string>("mount_drive", { device }),
+  unmountDrive: (device: string, eject: boolean) => invoke<void>("unmount_drive", { device, eject }),
+  appsForFile: (path: string) => invoke<OpenWithApp[]>("apps_for_file", { path }),
+  openWith: (path: string, appId: string) => invoke<void>("open_with", { path, appId }),
+  compress: (paths: string[], name: string) => invoke<string>("compress", { paths, name }),
+  emailFiles: (paths: string[]) => invoke<void>("email_files", { paths }),
+  fileProperties: (path: string) => invoke<FileProperties>("file_properties", { path }),
+  recentFiles: () => invoke<RecentFile[]>("recent_files"),
+  bootId: () => invoke<string>("boot_id"),
+  defaultFileManager: () => invoke<DefaultFm>("default_file_manager"),
+  setDefaultFileManager: (restore: boolean) => invoke<void>("set_default_file_manager", { restore }),
   listLocal: (path: string) => invoke<FileEntry[]>("list_local", { path }),
   localCreateFolder: (parent: string, name: string) => invoke<string>("local_create_folder", { parent, name }),
   localRename: (path: string, newName: string) => invoke<string>("local_rename", { path, newName }),
