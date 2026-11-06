@@ -36,6 +36,7 @@
   import { formatBytes } from "$lib/util/format";
   import { listen } from "@tauri-apps/api/event";
   import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
+  import BatchRenameDialog from "$lib/components/BatchRenameDialog.svelte";
   import type { DefaultFm } from "$lib/api/types";
 
   // ---- Where we are -------------------------------------------------------------------------
@@ -68,6 +69,95 @@
   let virtualView = $state<null | "recent" | "starred">(null);
   let openWithPath = $state<string | null>(null);
   let askDefault = $state<DefaultFm | null>(null);
+  let batchRename = $state<FileEntry[] | null>(null);
+
+  // ---- Undo / Redo ---------------------------------------------------------------------------
+  /** One reversible step: what it was called, and how to undo and redo it. */
+  interface Step {
+    label: string;
+    undo: () => Promise<void>;
+    redo: () => Promise<void>;
+  }
+  let undoStack = $state<Step[]>([]);
+  let redoStack = $state<Step[]>([]);
+
+  function record(step: Step) {
+    undoStack = [...undoStack.slice(-49), step];
+    redoStack = [];
+  }
+
+  async function undo() {
+    const step = undoStack.at(-1);
+    if (!step) return;
+    undoStack = undoStack.slice(0, -1);
+    try {
+      await step.undo();
+      redoStack = [...redoStack, step];
+      notice = `Undid: ${step.label}`;
+    } catch (err) {
+      error = asAppError(err);
+    }
+    await load();
+  }
+
+  async function redo() {
+    const step = redoStack.at(-1);
+    if (!step) return;
+    redoStack = redoStack.slice(0, -1);
+    try {
+      await step.redo();
+      undoStack = [...undoStack, step];
+      notice = `Redid: ${step.label}`;
+    } catch (err) {
+      error = asAppError(err);
+    }
+    await load();
+  }
+
+  const baseName = (p: string) => p.split(/[\\/]/).filter(Boolean).pop() ?? p;
+  const parentPath = (p: string) => p.slice(0, Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"))) || "/";
+
+  // ---- Archives ----------------------------------------------------------------------------
+  const ARCHIVE = /\.(zip|jar|cbz|tar|tgz|tar\.gz)$/i;
+  const inArchive = $derived(loc.kind === "local" && loc.path.includes("!/"));
+  const isArchiveFile = (e: FileEntry) => !e.isDir && ARCHIVE.test(e.name);
+
+  async function extract(entry: FileEntry) {
+    try {
+      const folder = await api.extractArchive(entry.path);
+      notice = `Extracted to ${baseName(folder)}`;
+      record({ label: `Extract ${entry.name}`, undo: () => api.localTrash([folder]), redo: async () => void (await api.extractArchive(entry.path)) });
+      if (!inArchive) await load();
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
+  /** Renames several items at once, as one step that undo can reverse. */
+  async function applyBatchRename(renames: { entry: FileEntry; name: string }[]) {
+    batchRename = null;
+    const done: { from: string; to: string }[] = [];
+    try {
+      for (const { entry, name } of renames) {
+        const to = await api.localRename(entry.path, name);
+        done.push({ from: entry.path, to });
+      }
+    } catch (err) {
+      error = asAppError(err);
+    }
+    if (done.length) {
+      record({
+        label: `Rename ${done.length} items`,
+        undo: async () => {
+          for (const d of [...done].reverse()) await api.localRename(d.to, baseName(d.from));
+        },
+        redo: async () => {
+          for (const d of done) await api.localRename(d.from, baseName(d.to));
+        },
+      });
+    }
+    await load();
+  }
 
   /** Opens a folder handed over by another app or a second launch; a file opens its folder, selected. */
   async function openGivenPath(path: string) {
@@ -240,6 +330,19 @@
       return;
     }
     if (loc.kind === "local") {
+      if (entry.path.includes("!/")) {
+        // A file inside an archive: unpack just that file to a temporary folder, then open it.
+        try {
+          await api.openLocal(await api.openFromArchive(entry.path));
+        } catch (err) {
+          error = asAppError(err);
+        }
+        return;
+      }
+      if (isArchiveFile(entry)) {
+        go({ kind: "local", path: `${entry.path}!/` }, undefined);
+        return;
+      }
       await api.openLocal(entry.path).catch((err) => (error = asAppError(err)));
       return;
     }
@@ -289,10 +392,35 @@
   async function transfer(payload: DragPayload, to: Location, forceCopy: boolean, forceMove = false) {
     if (sameLocation(payload.from, to)) return;
     // Like Finder: on the same drive a drag moves, across drives it copies. Ctrl or Alt copies.
+    const fromArchive = payload.from.kind === "local" && payload.from.path.includes("!/");
+    if (fromArchive || (to.kind === "local" && to.path.includes("!/"))) {
+      notice = fromArchive ? "Archives are read-only here: use Extract to take files out." : "Stingray can't add files to an archive.";
+      return;
+    }
     const move = forceMove || (!forceCopy && sameDrive(payload.from, to));
     const items = payload.entries.filter((e) => !intoItself(payload, to, e));
     if (items.length < payload.entries.length) notice = "A folder can't go inside itself, so it was skipped.";
     await queue(items.map((e) => request(payload, to, move, e)));
+    if (payload.from.kind === "local" && to.kind === "local" && items.length) {
+      const fromDir = payload.from.path;
+      const toDir = to.path;
+      const names = items.map((e) => e.name);
+      const back = (dir: string) => ({ kind: "local" as const, path: dir });
+      const what = names.length === 1 ? names[0] : `${names.length} items`;
+      record(
+        move
+          ? {
+              label: `Move ${what}`,
+              undo: () => queue(items.map((e) => request({ from: back(toDir), entries: [e] }, back(fromDir), true, e))),
+              redo: () => queue(items.map((e) => request({ from: back(fromDir), entries: [e] }, back(toDir), true, e))),
+            }
+          : {
+              label: `Copy ${what}`,
+              undo: () => api.localTrash(names.map((n) => joinLocal(toDir, n))),
+              redo: () => queue(items.map((e) => request({ from: back(fromDir), entries: [e] }, back(toDir), false, e))),
+            },
+      );
+    }
   }
 
   drag.handleDrop((payload, to, copy) => void transfer(payload, to, copy));
@@ -326,6 +454,8 @@
     try {
       if (loc.kind === "local") {
         const path = await api.localCreateFolder(loc.path, name);
+        const parent = loc.path;
+        record({ label: `New folder`, undo: () => api.localTrash([path]), redo: async () => void (await api.localCreateFolder(parent, baseName(path))) });
         await load();
         renaming = path;
       } else {
@@ -345,8 +475,11 @@
     const next = name?.trim();
     if (!next || next === entry.name) return;
     try {
-      if (loc.kind === "local") await api.localRename(entry.path, next);
-      else await api.renameItem(loc.remote, entry.path, entry.isDir, next);
+      if (loc.kind === "local") {
+        const to = await api.localRename(entry.path, next);
+        const from = entry.path;
+        record({ label: `Rename ${entry.name}`, undo: async () => void (await api.localRename(to, baseName(from))), redo: async () => void (await api.localRename(from, next)) });
+      } else await api.renameItem(loc.remote, entry.path, entry.isDir, next);
       await load();
     } catch (err) {
       error = asAppError(err);
@@ -358,8 +491,10 @@
     const what = items.length === 1 ? `"${items[0].name}"` : `${items.length} items`;
     try {
       if (loc.kind === "local") {
-        await api.localTrash(items.map((e) => e.path));
-        notice = `Moved ${what} to the Trash.`;
+        const paths = items.map((e) => e.path);
+        await api.localTrash(paths);
+        notice = `Moved ${what} to the Trash. Ctrl+Z puts it back.`;
+        record({ label: `Move ${what} to the Trash`, undo: () => api.restoreFromTrash(paths), redo: () => api.localTrash(paths) });
       } else {
         if (!window.confirm(`Delete ${what} from ${rootLabel}? This can't be undone from Stingray.`)) return;
         await api.deleteItems(loc.remote, items.map((e) => ({ path: e.path, isDir: e.isDir })));
@@ -414,17 +549,19 @@
       { label: "Copy", action: () => copySelection(false) },
       { label: "Move to…", action: () => void sendTo(items, true) },
       { label: "Copy to…", action: () => void sendTo(items, false) },
-      { label: "Rename…", action: () => (renaming = entry.path), disabled: many, separator: true },
+      { label: many ? `Rename ${items.length} items…` : "Rename…", action: () => (many ? (batchRename = items) : (renaming = entry.path)), disabled: inArchive || (many && !local), separator: true },
+      { label: "Extract Here", action: () => void extract(entry), disabled: many || !local || !(isArchiveFile(entry) || inArchive) },
+      { label: "Add to Places", action: () => viewPrefs.addBookmark(entry.path, entry.name), disabled: many || !local || !entry.isDir || inArchive },
       {
         label: "Paste Into Folder",
         action: () => clipboard && void transfer(clipboard.payload, childOf(loc, entry), !clipboard.cut, clipboard.cut),
         disabled: !clipboard || many || !entry.isDir,
       },
-      { label: "Compress…", action: () => void compressItems(items), disabled: !local },
+      { label: "Compress…", action: () => void compressItems(items), disabled: !local || inArchive },
       { label: "Email…", action: () => void api.emailFiles(items.map((e) => e.path)).catch((err) => (error = asAppError(err))), disabled: !local || items.some((e) => e.isDir) },
       { label: starred ? "Remove from Starred" : "Star", action: () => { viewPrefs.toggleStar(items.map((e) => e.path)); if (virtualView === "starred") void load(); }, disabled: !local },
       { label: "Copy path", action: () => void copyPath(entry), disabled: many },
-      { label: local ? "Move to Trash" : "Delete…", destructive: true, separator: true, action: () => void remove(items) },
+      { label: local ? "Move to Trash" : "Delete…", destructive: true, separator: true, action: () => void remove(items), disabled: inArchive },
       { label: "Properties", action: () => (propertiesPath = entry.path), disabled: many || !local, separator: true },
     ]);
   }
@@ -435,8 +572,10 @@
   function backgroundMenu(event: MouseEvent) {
     const s = viewPrefs.sort;
     showMenu(event, [
-      { label: "New folder", action: () => void newFolder(), disabled: virtualView !== null },
-      { label: "Paste", action: () => void paste(), disabled: !clipboard || virtualView !== null },
+      { label: undoStack.length ? `Undo ${undoStack.at(-1)?.label}` : "Undo", action: () => void undo(), disabled: !undoStack.length },
+      { label: redoStack.length ? `Redo ${redoStack.at(-1)?.label}` : "Redo", action: () => void redo(), disabled: !redoStack.length },
+      { label: "New folder", action: () => void newFolder(), disabled: virtualView !== null || inArchive, separator: true },
+      { label: "Paste", action: () => void paste(), disabled: !clipboard || virtualView !== null || inArchive },
       ...SORT_LABELS.map(([key, label], i) => ({
         label: tick(s.key === key, `Arrange by ${label}`),
         action: () => viewPrefs.setSort({ key }),
@@ -474,6 +613,9 @@
     else if ((event.altKey && event.key === "ArrowUp") || event.key === "Backspace") goUp();
     else if (event.key === "Enter" && single) void open(single);
     else if (event.key === "F2" && single) renaming = single.path;
+    else if (event.key === "F2" && selectedEntries.length > 1 && loc.kind === "local" && !inArchive) batchRename = selectedEntries;
+    else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") void undo();
+    else if (ctrl && ((event.shiftKey && event.key.toLowerCase() === "z") || event.key.toLowerCase() === "y")) void redo();
     else if (event.key === "Delete") void remove(selectedEntries);
     else if (event.key === "F5") void load();
     else if (ctrl && event.shiftKey && event.key.toLowerCase() === "n") void newFolder();
@@ -696,6 +838,10 @@
       <p>Stingray's storage engine is still starting. Try again in a moment.</p>
     {/if}
   </Dialog>
+{/if}
+
+{#if batchRename}
+  <BatchRenameDialog items={batchRename} onApply={(r) => void applyBatchRename(r)} onClose={() => (batchRename = null)} />
 {/if}
 
 {#if askDefault}

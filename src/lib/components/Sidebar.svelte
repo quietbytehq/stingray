@@ -5,6 +5,7 @@
   import BrandIcon from "./BrandIcon.svelte";
   import FileIcon, { type SpecialFolder } from "./FileIcon.svelte";
   import { api } from "$lib/api";
+  import { viewPrefs } from "$lib/stores/viewPrefs.svelte";
   import type { Drive } from "$lib/api/types";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { sameLocation, type Location } from "$lib/util/location";
@@ -174,6 +175,40 @@
       <Star size={16} strokeWidth={1.75} aria-hidden="true" />
       <span class="label">Starred</span>
     </button>
+
+    {#if viewPrefs.bookmarks.length}
+      <h2>Bookmarks</h2>
+      {#each viewPrefs.bookmarks as mark (mark.path)}
+        {@const loc = { kind: "local" as const, path: mark.path }}
+        <button
+          type="button"
+          class="item"
+          class:current={!virtual && sameLocation(current, loc)}
+          class:drop={drag.over === dropKey(loc)}
+          data-drop={dropKey(loc)}
+          title={mark.path}
+          onclick={() => onNavigate(loc, mark.label)}
+          oncontextmenu={(e) =>
+            onMenu(e, [
+              { label: "Open", action: () => onNavigate(loc, mark.label) },
+              {
+                label: "Rename…",
+                action: () => {
+                  const name = window.prompt("Bookmark name", mark.label);
+                  if (name?.trim()) {
+                    viewPrefs.removeBookmark(mark.path);
+                    viewPrefs.addBookmark(mark.path, name.trim());
+                  }
+                },
+              },
+              { label: "Remove from Places", destructive: true, separator: true, action: () => viewPrefs.removeBookmark(mark.path) },
+            ])}
+        >
+          <span class="place-icon"><FileIcon name="" isDir={true} size={20} /></span>
+          <span class="label">{mark.label}</span>
+        </button>
+      {/each}
+    {/if}
 
     {#if disks.length}
       <h2>Devices</h2>

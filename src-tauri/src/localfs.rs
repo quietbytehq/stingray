@@ -135,7 +135,13 @@ fn checked_name(name: &str) -> AppResult<&str> {
 
 #[tauri::command]
 pub async fn list_local(path: String) -> AppResult<Vec<FileEntry>> {
-    tauri::async_runtime::spawn_blocking(move || list(Path::new(&path)))
+    tauri::async_runtime::spawn_blocking(move || {
+        if path.contains(crate::archive::SEPARATOR) {
+            crate::archive::list(&path)
+        } else {
+            list(Path::new(&path))
+        }
+    })
         .await
         .map_err(|err| AppError::new(ErrorKind::Internal, "Listing the folder stopped unexpectedly.").with_details(err.to_string()))?
 }
@@ -171,6 +177,26 @@ pub fn local_trash(paths: Vec<String>) -> AppResult<()> {
         AppError::new(ErrorKind::Io, "Stingray couldn't move these items to the trash.")
             .with_details(err.to_string())
     })
+}
+
+/// Undo for "Move to Trash": puts these items back where they were.
+#[tauri::command]
+pub fn restore_from_trash(paths: Vec<String>) -> AppResult<()> {
+    #[cfg(any(target_os = "linux", windows))]
+    {
+        let wanted: std::collections::HashSet<PathBuf> = paths.iter().map(PathBuf::from).collect();
+        let items = trash::os_limited::list().map_err(|e| io_error("Stingray couldn't read the Trash.", std::io::Error::other(e.to_string())))?;
+        // Newest first, so a path trashed twice restores its latest copy.
+        let mut matching: Vec<_> = items.into_iter().filter(|i| wanted.contains(&i.original_path())).collect();
+        matching.sort_by_key(|i| std::cmp::Reverse(i.time_deleted));
+        let mut seen = std::collections::HashSet::new();
+        matching.retain(|i| seen.insert(i.original_path()));
+        if matching.is_empty() {
+            return Err(AppError::invalid("Those items are no longer in the Trash."));
+        }
+        trash::os_limited::restore_all(matching).map_err(|e| io_error("Stingray couldn't restore from the Trash.", std::io::Error::other(e.to_string())))?;
+    }
+    Ok(())
 }
 
 /// Opens a file with its default app.

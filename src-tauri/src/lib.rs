@@ -1,4 +1,5 @@
 mod commands;
+pub mod archive;
 pub mod desktop;
 pub mod error;
 pub mod files;
@@ -203,6 +204,9 @@ pub fn run() {
             localfs::local_create_folder,
             localfs::local_rename,
             localfs::local_trash,
+            localfs::restore_from_trash,
+            archive::extract_archive,
+            archive::open_from_archive,
             localfs::open_local,
             nfs::nfs_support,
             nfs::list_nfs_shares,

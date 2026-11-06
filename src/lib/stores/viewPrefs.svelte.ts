@@ -9,6 +9,7 @@ export type SortKey = "name" | "size" | "type" | "modified";
 
 const SORT_KEY = "stingray.sort";
 const STAR_KEY = "stingray.starred";
+const MARK_KEY = "stingray.bookmarks";
 
 function read<T>(key: string, fallback: T): T {
   try {
@@ -29,6 +30,34 @@ class ViewPrefs {
       return [];
     }
   })());
+
+  /** Folders added to Places from the right-click menu. */
+  bookmarks = $state<{ path: string; label: string }[]>((() => {
+    try {
+      return JSON.parse(localStorage.getItem(MARK_KEY) ?? "[]");
+    } catch {
+      return [];
+    }
+  })());
+
+  addBookmark(path: string, label: string) {
+    if (this.bookmarks.some((b) => b.path === path)) return;
+    this.bookmarks = [...this.bookmarks, { path, label }];
+    this.#saveMarks();
+  }
+
+  removeBookmark(path: string) {
+    this.bookmarks = this.bookmarks.filter((b) => b.path !== path);
+    this.#saveMarks();
+  }
+
+  #saveMarks() {
+    try {
+      localStorage.setItem(MARK_KEY, JSON.stringify(this.bookmarks));
+    } catch {
+      // Bookmarks still work for this session.
+    }
+  }
 
   setSort(change: Partial<{ key: SortKey; descending: boolean; foldersFirst: boolean }>) {
     this.sort = { ...this.sort, ...change };
