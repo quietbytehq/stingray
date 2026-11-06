@@ -6,7 +6,7 @@
 name: stingray
 title: Stingray File Manager
 base: core24
-version: "1.8.0"
+version: "1.9.0"
 summary: A modern file manager for your folders, cloud drives and servers
 description: |
   Stingray puts your folders, your cloud drives and your servers in one clean window.
@@ -28,7 +28,7 @@ website: https://github.com/quietbytehq/stingray
 source-code: https://github.com/quietbytehq/stingray
 issues: https://github.com/quietbytehq/stingray/issues
 contact: hello@quietbytehq.uk
-icon: assets/logo/stingray-1024.png
+icon: assets/logo/stingray-512.png
 
 platforms:
   amd64:
@@ -76,7 +76,7 @@ parts:
   stingray:
     plugin: dump
     # The .deb from `npm run bundle:linux` (or the stingray-linux-x86_64 CI artifact).
-    source: dist/stingray_1.8.0_amd64.deb
+    source: dist/stingray_1.9.0_amd64.deb
     source-type: deb
     stage-packages:
       - libwebkit2gtk-4.1-0

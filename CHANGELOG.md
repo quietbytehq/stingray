@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.9.0 (unreleased)
+
+- Tabs: Ctrl+T new tab, Ctrl+W close, Ctrl+Shift+T reopen a closed tab, Ctrl+Tab / Alt+1–9 to
+  switch, middle-click to close; "Open in New Tab" on folders.
+- Split view (F3): a second folder side by side, with drag and drop between the two.
+- Undo / Redo (Ctrl+Z, Ctrl+Shift+Z) for renames, new folders, moves, copies, extracting and
+  Move to Trash (restored to where it was).
+- Archives: open .zip, .tar, .tar.gz like folders; Extract Here; open a single file from inside.
+- Batch rename (F2 on several items): find and replace, add text, or name and number, with preview.
+- Bookmarks: "Add to Places" on any folder.
+
 ## 1.8.0 (unreleased)
 
 - Devices in the sidebar: every drive and partition (Windows disks too), mounted on click, with eject.

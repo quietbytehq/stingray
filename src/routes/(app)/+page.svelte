@@ -17,7 +17,7 @@
     sameLocation,
     type Location,
   } from "$lib/util/location";
-  import { ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
+  import { Plus, Columns2, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import FileView from "$lib/components/FileView.svelte";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
@@ -37,6 +37,7 @@
   import { listen } from "@tauri-apps/api/event";
   import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
   import BatchRenameDialog from "$lib/components/BatchRenameDialog.svelte";
+  import SplitPane from "$lib/components/SplitPane.svelte";
   import type { DefaultFm } from "$lib/api/types";
 
   // ---- Where we are -------------------------------------------------------------------------
@@ -70,6 +71,93 @@
   let openWithPath = $state<string | null>(null);
   let askDefault = $state<DefaultFm | null>(null);
   let batchRename = $state<FileEntry[] | null>(null);
+
+  // ---- Tabs ----------------------------------------------------------------------------------
+  /** Everything a tab remembers. The window shows one tab at a time; switching swaps these in. */
+  interface TabState {
+    loc: Location;
+    rootLabel: string;
+    back: { loc: Location; label: string }[];
+    forward: { loc: Location; label: string }[];
+    virtualView: null | "recent" | "starred";
+  }
+  let tabs = $state<TabState[]>([]);
+  let activeTab = $state(0);
+  let closedTabs = $state<TabState[]>([]);
+
+  function snapshot(): TabState {
+    return { loc, rootLabel, back: [...back], forward: [...forward], virtualView };
+  }
+
+  function applyTab(tab: TabState) {
+    loc = tab.loc;
+    rootLabel = tab.rootLabel;
+    back = [...tab.back];
+    forward = [...tab.forward];
+    virtualView = tab.virtualView;
+    selected = new Set();
+    renaming = null;
+    query = "";
+    void load();
+  }
+
+  function switchTab(index: number) {
+    if (index === activeTab || index < 0 || index >= tabs.length) return;
+    tabs[activeTab] = snapshot();
+    activeTab = index;
+    applyTab(tabs[index]);
+  }
+
+  function newTab(at?: Location, label?: string) {
+    if (!tabs.length) tabs = [snapshot()];
+    tabs[activeTab] = snapshot();
+    const start = at ?? (home ? { kind: "local" as const, path: home.path } : loc);
+    tabs = [...tabs, { loc: start, rootLabel: label ?? (at ? rootLabel : (home?.label ?? "Home")), back: [], forward: [], virtualView: null }];
+    activeTab = tabs.length - 1;
+    applyTab(tabs[activeTab]);
+  }
+
+  function closeTab(index: number) {
+    if (tabs.length <= 1) return;
+    const closing = index === activeTab ? snapshot() : tabs[index];
+    closedTabs = [...closedTabs.slice(-19), closing];
+    tabs = tabs.filter((_, i) => i !== index);
+    if (index === activeTab) {
+      activeTab = Math.min(index, tabs.length - 1);
+      applyTab(tabs[activeTab]);
+    } else if (index < activeTab) {
+      activeTab -= 1;
+    }
+  }
+
+  function reopenTab() {
+    const tab = closedTabs.at(-1);
+    if (!tab) return;
+    closedTabs = closedTabs.slice(0, -1);
+    if (!tabs.length) tabs = [snapshot()];
+    tabs[activeTab] = snapshot();
+    tabs = [...tabs, tab];
+    activeTab = tabs.length - 1;
+    applyTab(tab);
+  }
+
+  /** A tab's title: its folder name. The active tab follows the live breadcrumbs. */
+  function tabTitle(tab: TabState, index: number): string {
+    if (index === activeTab) return trail.at(-1)?.label ?? rootLabel;
+    if (tab.virtualView) return tab.virtualView === "recent" ? "Recent" : "Starred";
+    const p = tab.loc.path;
+    return (p.split(/[\\/]/).filter(Boolean).pop() ?? "").replace(/!$/, "") || tab.rootLabel;
+  }
+
+  // ---- Split view ----------------------------------------------------------------------------
+  let split = $state(false);
+  let splitStart = $state<Location | null>(null);
+  let splitFocused = $state(false);
+
+  function toggleSplit() {
+    split = !split;
+    if (split) splitStart = { ...loc };
+  }
 
   // ---- Undo / Redo ---------------------------------------------------------------------------
   /** One reversible step: what it was called, and how to undo and redo it. */
@@ -545,6 +633,8 @@
     showMenu(event, [
       { label: entry.isDir ? "Open" : local ? "Open" : "Download", action: () => void open(entry), disabled: many },
       { label: "Open With…", action: () => (openWithPath = entry.path), disabled: many || !local || entry.isDir },
+      { label: "Open in New Tab", action: () => newTab(childOf(loc, entry), entry.name), disabled: many || !entry.isDir },
+      { label: "Open in Split View", action: () => { split = true; splitStart = childOf(loc, entry); }, disabled: many || !entry.isDir },
       { label: "Cut", action: () => copySelection(true), separator: true },
       { label: "Copy", action: () => copySelection(false) },
       { label: "Move to…", action: () => void sendTo(items, true) },
@@ -612,6 +702,13 @@
     else if (event.altKey && event.key === "ArrowRight") goForward();
     else if ((event.altKey && event.key === "ArrowUp") || event.key === "Backspace") goUp();
     else if (event.key === "Enter" && single) void open(single);
+    else if (event.key === "F3") toggleSplit();
+    else if (ctrl && event.shiftKey && event.key.toLowerCase() === "t") reopenTab();
+    else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "t") newTab();
+    else if (ctrl && event.key.toLowerCase() === "w") {
+      if (tabs.length > 1) closeTab(activeTab);
+    } else if (ctrl && event.key === "Tab") switchTab((activeTab + (event.shiftKey ? tabs.length - 1 : 1)) % Math.max(tabs.length, 1));
+    else if (event.altKey && /^[1-9]$/.test(event.key)) switchTab(Number(event.key) - 1);
     else if (event.key === "F2" && single) renaming = single.path;
     else if (event.key === "F2" && selectedEntries.length > 1 && loc.kind === "local" && !inArchive) batchRename = selectedEntries;
     else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "z") void undo();
@@ -639,6 +736,7 @@
       const given = await api.takeInitialPath().catch(() => null);
       if (given) await openGivenPath(given);
       else if (home) go({ kind: "local", path: home.path }, home.label, false);
+      tabs = [snapshot()];
       // First start: offer to become the default file manager (once, unless postponed).
       let asked = false;
       try {
@@ -715,6 +813,26 @@
   />
 
   <section class="main">
+    {#if tabs.length > 1}
+      <div class="tabs" role="tablist" aria-label="Tabs">
+        {#each tabs as tab, i (i)}
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <div
+            class="tab"
+            role="tab"
+            tabindex="0"
+            aria-selected={i === activeTab}
+            onclick={() => switchTab(i)}
+            onauxclick={(e) => { if (e.button === 1) closeTab(i); }}
+            onkeydown={(e) => { if (e.key === "Enter") switchTab(i); }}
+          >
+            <span class="tab-title">{tabTitle(tab, i)}</span>
+            <button type="button" class="tab-close" aria-label="Close tab" onclick={(e) => { e.stopPropagation(); closeTab(i); }}>×</button>
+          </div>
+        {/each}
+        <button type="button" class="tab-new" title="New tab (Ctrl+T)" aria-label="New tab" onclick={() => newTab()}>+</button>
+      </div>
+    {/if}
     <header class="toolbar">
       <div class="nav">
         <button type="button" class="tool" onclick={goBack} disabled={back.length === 0} title="Back (Alt+Left)" aria-label="Back">
@@ -740,6 +858,12 @@
         <button type="button" class="tool" onclick={() => void load()} title="Refresh (F5)" aria-label="Refresh">
           <RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" class={loading ? "spin" : ""} />
         </button>
+        <button type="button" class="tool" onclick={() => newTab()} title="New tab (Ctrl+T)" aria-label="New tab">
+          <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
+        <button type="button" class="tool" onclick={toggleSplit} title="Split view (F3)" aria-label="Split view" aria-pressed={split}>
+          <Columns2 size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
         <div class="segmented" role="group" aria-label="View">
           <button type="button" aria-pressed={mode === "grid"} onclick={() => (mode = "grid")} title="Icons" aria-label="Icons">
             <LayoutGrid size={15} strokeWidth={1.75} aria-hidden="true" />
@@ -759,6 +883,9 @@
       <div class="banner"><ErrorNote {error} /></div>
     {/if}
 
+    <div class="panes" class:split>
+      <!-- svelte-ignore a11y_no_static_element_interactions -->
+      <div class="left" onpointerdown={() => (splitFocused = false)}>
     {#if loading && entries.length === 0}
       <div class="empty" role="status">
         <span class="loader" aria-hidden="true"></span>
@@ -794,6 +921,22 @@
         onRename={(entry, name) => void rename(entry, name)}
       />
     {/if}
+      </div>
+      {#if split && splitStart}
+        {#key splitStart}
+          <SplitPane
+            start={splitStart}
+            label={rootLabel}
+            focused={splitFocused}
+            onFocus={() => (splitFocused = true)}
+            onClose={() => (split = false)}
+            onMenu={showMenu}
+            canPaste={!!clipboard}
+            onPaste={(to) => clipboard && void transfer(clipboard.payload, to, !clipboard.cut, clipboard.cut)}
+          />
+        {/key}
+      {/if}
+    </div>
 
     <footer class="status">
       <span>{statusText}</span>
@@ -1037,6 +1180,73 @@
   .empty p {
     margin: 0;
     max-width: 40ch;
+  }
+  .tabs {
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    padding: 6px 10px 0;
+    border-bottom: 1px solid var(--separator);
+    overflow-x: auto;
+  }
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 200px;
+    padding: 5px 6px 5px 12px;
+    border-radius: 8px 8px 0 0;
+    color: var(--text-secondary);
+    cursor: default;
+  }
+  .tab:hover {
+    background: var(--control-bg);
+  }
+  .tab[aria-selected="true"] {
+    background: var(--window-bg);
+    color: var(--text-primary);
+    font-weight: 600;
+    box-shadow: inset 0 2px 0 var(--accent);
+  }
+  .tab-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .tab-close,
+  .tab-new {
+    border: none;
+    background: none;
+    color: var(--text-secondary);
+    border-radius: 5px;
+    width: 20px;
+    height: 20px;
+    line-height: 1;
+    font-size: 15px;
+  }
+  .tab-close:hover,
+  .tab-new:hover {
+    background: var(--control-bg-hover);
+    color: var(--text-primary);
+  }
+  .tab-new {
+    align-self: center;
+    margin-left: 4px;
+  }
+  .panes {
+    flex: 1;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .panes.split {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .left {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
   }
   .status {
     display: flex;
