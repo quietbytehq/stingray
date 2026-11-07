@@ -13,6 +13,7 @@ pub mod remotes;
 mod reveal;
 pub mod settings;
 pub mod system;
+pub mod terminal;
 pub mod text;
 
 use files::transfers::{Item as TransferItem, TransferQueue};
@@ -91,6 +92,7 @@ pub fn run() {
                 }
             }
             app.manage(desktop::BackgroundStart(AtomicBool::new(background)));
+            app.manage(terminal::Terminals::default());
             app.manage(desktop::InitialPath(Mutex::new(desktop::first_path(&args))));
             if let Err(err) = desktop::setup_tray(app.handle()) {
                 eprintln!("Stingray: no tray icon on this desktop: {err}");
@@ -206,6 +208,11 @@ pub fn run() {
             localfs::local_trash,
             localfs::restore_from_trash,
             archive::extract_archive,
+            terminal::term_open,
+            terminal::term_write,
+            terminal::term_resize,
+            terminal::term_idle,
+            terminal::term_close,
             archive::open_from_archive,
             localfs::open_local,
             nfs::nfs_support,
@@ -220,6 +227,7 @@ pub fn run() {
 
     app.run(|app_handle, event| {
         if let RunEvent::Exit = event {
+            terminal::close_all(app_handle);
             let already = app_handle
                 .try_state::<quit::QuitState>()
                 .is_some_and(|state| state.0.load(Ordering::SeqCst));

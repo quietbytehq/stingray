@@ -17,7 +17,7 @@
     sameLocation,
     type Location,
   } from "$lib/util/location";
-  import { Plus, Columns2, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
+  import { Plus, Columns2, SquareTerminal, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import FileView from "$lib/components/FileView.svelte";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
@@ -39,6 +39,8 @@
   import SplitPane from "$lib/components/SplitPane.svelte";
   import FolderPickerDialog from "$lib/components/FolderPickerDialog.svelte";
   import FolderTree from "$lib/components/FolderTree.svelte";
+  import TerminalPanel from "$lib/components/TerminalPanel.svelte";
+  import { iconThemes } from "$lib/stores/iconThemes.svelte";
   import { age, cacheKey, getListing, putListing } from "$lib/stores/listingCache";
   import type { DefaultFm } from "$lib/api/types";
 
@@ -659,6 +661,9 @@
 
   /** The Folders panel (F7): a tree beside the file view. */
   let showTree = $state(false);
+  /** The terminal panel (F4). */
+  let showTerminal = $state(false);
+  const terminalCwd = $derived(loc.kind === "local" && !loc.path.includes("!/") ? loc.path : (home?.path ?? ""));
 
   async function compressItems(items: FileEntry[]) {
     const suggested = items.length === 1 ? items[0].name.replace(/\.[^.]+$/, "") : "Archive";
@@ -752,6 +757,7 @@
     else if (event.key === "Enter" && single) void open(single);
     else if (event.key === "F3") toggleSplit();
     else if (event.key === "F7") showTree = !showTree;
+    else if (event.key === "F4") showTerminal = !showTerminal;
     else if (ctrl && event.shiftKey && event.key.toLowerCase() === "t") reopenTab();
     else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "t") newTab();
     else if (ctrl && event.key.toLowerCase() === "w") {
@@ -912,6 +918,9 @@
         <button type="button" class="tool" onclick={() => newTab()} title="New tab (Ctrl+T)" aria-label="New tab">
           <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
+        <button type="button" class="tool" onclick={() => (showTerminal = !showTerminal)} title="Terminal (F4)" aria-label="Terminal" aria-pressed={showTerminal}>
+          <SquareTerminal size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
         <button type="button" class="tool" onclick={toggleSplit} title="Split view (F3)" aria-label="Split view" aria-pressed={split}>
           <Columns2 size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -997,6 +1006,17 @@
         {/key}
       {/if}
     </div>
+
+    {#if showTerminal}
+      <TerminalPanel
+        cwd={terminalCwd}
+        dark={iconThemes.dark}
+        onClose={() => (showTerminal = false)}
+        onCwd={(path) => {
+          if (loc.kind !== "local" || loc.path !== path) go({ kind: "local", path });
+        }}
+      />
+    {/if}
 
     <footer class="status">
       <span>{statusText}</span>

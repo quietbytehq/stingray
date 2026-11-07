@@ -67,10 +67,24 @@ pub fn open_path(app: &AppHandle, path: Option<String>) {
     }
 }
 
-pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+fn tray_menu(app: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let show = MenuItem::with_id(app, "show", "Show Stingray", true, None::<&str>)?;
     let exit = MenuItem::with_id(app, "exit", "Exit Stingray", true, None::<&str>)?;
-    let menu = Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app)?, &exit])?;
+    Menu::with_items(app, &[&show, &PredefinedMenuItem::separator(app)?, &exit])
+}
+
+/// Hands the tray its menu again. Ubuntu's top bar sometimes shows a tray menu before it has
+/// received the items (an empty box with only the divider); sending the menu again once
+/// Stingray has started, and whenever its window hides, fixes that.
+pub fn refresh_tray_menu(app: &AppHandle) {
+    let Some(tray) = app.tray_by_id("stingray") else { return };
+    if let Ok(menu) = tray_menu(app) {
+        let _ = tray.set_menu(Some(menu));
+    }
+}
+
+pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
+    let menu = tray_menu(app)?;
     let mut builder = TrayIconBuilder::with_id("stingray")
         .tooltip("Stingray File Manager")
         .menu(&menu)
@@ -89,6 +103,13 @@ pub fn setup_tray(app: &AppHandle) -> tauri::Result<()> {
         builder = builder.icon(icon.clone());
     }
     builder.build(app)?;
+    // Send the menu again once start-up has settled.
+    let later = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_secs(3));
+        let again = later.clone();
+        let _ = later.run_on_main_thread(move || refresh_tray_menu(&again));
+    });
     Ok(())
 }
 
@@ -102,6 +123,7 @@ pub fn keep_in_background(app: &AppHandle) -> bool {
         for window in app.webview_windows().values() {
             let _ = window.hide();
         }
+        refresh_tray_menu(app);
     }
     keep
 }

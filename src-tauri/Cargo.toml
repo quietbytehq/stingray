@@ -34,6 +34,7 @@ libc = "0.2.191"
 trash = "5"
 zip = { version = "2", default-features = false, features = ["deflate"] }
 tar = "0.4"
+portable-pty = "0.9"
 flate2 = "1"
 dirs = "6"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

@@ -8,6 +8,7 @@ import type { FileKind } from "$lib/util/filekind";
 import Archive from "@lucide/svelte/icons/archive";
 import ArrowUp from "@lucide/svelte/icons/arrow-up";
 import Columns2 from "@lucide/svelte/icons/columns-2";
+import SquareTerminal from "@lucide/svelte/icons/square-terminal";
 import Box from "@lucide/svelte/icons/box";
 import ChevronDown from "@lucide/svelte/icons/chevron-down";
 import ChevronRight from "@lucide/svelte/icons/chevron-right";
@@ -86,6 +87,7 @@ export {
   Archive,
   ArrowUp,
   Columns2,
+  SquareTerminal,
   Box,
   ChevronDown,
   ChevronRight,
