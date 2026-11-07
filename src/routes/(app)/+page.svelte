@@ -17,7 +17,7 @@
     sameLocation,
     type Location,
   } from "$lib/util/location";
-  import { Plus, Columns2, SquareTerminal, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
+  import { Plus, Columns2, SquareTerminal, Rows3, Info, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import FileView from "$lib/components/FileView.svelte";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
@@ -40,6 +40,7 @@
   import FolderPickerDialog from "$lib/components/FolderPickerDialog.svelte";
   import FolderTree from "$lib/components/FolderTree.svelte";
   import TerminalPanel from "$lib/components/TerminalPanel.svelte";
+  import InfoPanel from "$lib/components/InfoPanel.svelte";
   import { iconThemes } from "$lib/stores/iconThemes.svelte";
   import { age, cacheKey, getListing, putListing } from "$lib/stores/listingCache";
   import type { DefaultFm } from "$lib/api/types";
@@ -69,7 +70,7 @@
   let error = $state<AppError | null>(null);
   let notice = $state<string | null>(null);
 
-  let mode = $state<"grid" | "list">("grid");
+  let mode = $state<"grid" | "list" | "compact">("grid");
   /** Recent and Starred are lists, not folders; while one is shown it replaces the folder listing. */
   let virtualView = $state<null | "recent" | "starred">(null);
   let openWithPath = $state<string | null>(null);
@@ -663,6 +664,8 @@
   let showTree = $state(false);
   /** The terminal panel (F4). */
   let showTerminal = $state(false);
+  /** The information panel (F11). */
+  let showInfo = $state(false);
   const terminalCwd = $derived(loc.kind === "local" && !loc.path.includes("!/") ? loc.path : (home?.path ?? ""));
 
   async function compressItems(items: FileEntry[]) {
@@ -758,6 +761,10 @@
     else if (event.key === "F3") toggleSplit();
     else if (event.key === "F7") showTree = !showTree;
     else if (event.key === "F4") showTerminal = !showTerminal;
+    else if (event.key === "F11") {
+      event.preventDefault();
+      showInfo = !showInfo;
+    }
     else if (ctrl && event.shiftKey && event.key.toLowerCase() === "t") reopenTab();
     else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "t") newTab();
     else if (ctrl && event.key.toLowerCase() === "w") {
@@ -918,6 +925,9 @@
         <button type="button" class="tool" onclick={() => newTab()} title="New tab (Ctrl+T)" aria-label="New tab">
           <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
+        <button type="button" class="tool" onclick={() => (showInfo = !showInfo)} title="Information (F11)" aria-label="Information" aria-pressed={showInfo}>
+          <Info size={16} strokeWidth={1.75} aria-hidden="true" />
+        </button>
         <button type="button" class="tool" onclick={() => (showTerminal = !showTerminal)} title="Terminal (F4)" aria-label="Terminal" aria-pressed={showTerminal}>
           <SquareTerminal size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -927,6 +937,9 @@
         <div class="segmented" role="group" aria-label="View">
           <button type="button" aria-pressed={mode === "grid"} onclick={() => (mode = "grid")} title="Icons" aria-label="Icons">
             <LayoutGrid size={15} strokeWidth={1.75} aria-hidden="true" />
+          </button>
+          <button type="button" aria-pressed={mode === "compact"} onclick={() => (mode = "compact")} title="Compact" aria-label="Compact">
+            <Rows3 size={15} strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button type="button" aria-pressed={mode === "list"} onclick={() => (mode = "list")} title="List" aria-label="List">
             <List size={15} strokeWidth={1.75} aria-hidden="true" />
@@ -943,7 +956,10 @@
       <div class="banner"><ErrorNote {error} /></div>
     {/if}
 
-    <div class="panes" class:split class:tree={showTree}>
+    <div
+      class="panes"
+      style:grid-template-columns={[showTree ? "230px" : "", "minmax(0, 1fr)", split ? "minmax(0, 1fr)" : "", showInfo ? "280px" : ""].filter(Boolean).join(" ")}
+    >
       {#if showTree}
         <aside class="tree-panel" aria-label="Folders">
           <div class="tree-head">
@@ -1004,6 +1020,9 @@
             onPaste={(to) => clipboard && void transfer(clipboard.payload, to, !clipboard.cut, clipboard.cut)}
           />
         {/key}
+      {/if}
+      {#if showInfo}
+        <InfoPanel entry={selectedEntries.length === 1 ? selectedEntries[0] : null} count={selectedEntries.length} local={loc.kind === "local"} onClose={() => (showInfo = false)} />
       {/if}
     </div>
 
@@ -1332,15 +1351,6 @@
     min-height: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-  }
-  .panes.split {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  }
-  .panes.tree {
-    grid-template-columns: 230px minmax(0, 1fr);
-  }
-  .panes.tree.split {
-    grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr);
   }
   .tree-panel {
     display: flex;

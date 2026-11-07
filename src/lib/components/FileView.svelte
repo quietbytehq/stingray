@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { fileKind } from "$lib/util/filekind";
   import type { FileEntry } from "$lib/api/types";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
   import { childOf, type Location } from "$lib/util/location";
@@ -24,14 +25,14 @@
   }: {
     loc: Location;
     entries: FileEntry[];
-    mode: "grid" | "list";
+    mode: "grid" | "list" | "compact";
     selected: Set<string>;
     /** Path of the item being renamed in place, if any. */
     renaming?: string | null;
     /** Current sort, shown as an arrow on the list view's column headers. */
     sortKey?: string;
     sortDescending?: boolean;
-    onSort?: (key: "name" | "size" | "modified") => void;
+    onSort?: (key: "name" | "size" | "modified" | "type") => void;
     /** Icon size in the icon view, in pixels. */
     iconSize?: number;
     /** Show pictures as thumbnails rather than file icons. */
@@ -49,6 +50,14 @@
     drag.target(dropKey(loc), loc);
     for (const entry of entries) if (entry.isDir) drag.target(dropKey(childOf(loc, entry)), childOf(loc, entry));
   });
+
+  /** "PDF document", "PNG image"… from the extension, for the Type column. */
+  function typeLabel(name: string): string {
+    const ext = name.includes(".") ? name.slice(name.lastIndexOf(".") + 1).toUpperCase() : "";
+    const kind = fileKind(name, false);
+    const word: Record<string, string> = { image: "image", video: "video", audio: "audio", pdf: "document", document: "document", spreadsheet: "spreadsheet", presentation: "presentation", archive: "archive", code: "source", text: "text" };
+    return ext ? `${ext} ${word[kind] ?? "file"}` : "File";
+  }
 
   function click(event: MouseEvent, entry: FileEntry) {
     const next = new Set(event.ctrlKey || event.metaKey ? selected : []);
@@ -134,8 +143,8 @@
   onclick={(e) => { if (e.target === e.currentTarget) selected = new Set(); }}
   oncontextmenu={(e) => { if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains("grid") || (e.target as HTMLElement).tagName === "TBODY") { e.preventDefault(); selected = new Set(); onBackgroundMenu(e); } }}
 >
-  {#if mode === "grid"}
-    <div class="grid" style:--tile="{Math.max(96, iconSize + 44)}px" style:--icon="{iconSize + 8}px" role="listbox" aria-multiselectable="true" aria-label="Files">
+  {#if mode !== "list"}
+    <div class="grid" class:compact={mode === "compact"} style:--tile="{Math.max(96, iconSize + 44)}px" style:--icon="{iconSize + 8}px" role="listbox" aria-multiselectable="true" aria-label="Files">
       {#each entries as entry (entry.path)}
         {@const target = entry.isDir ? dropKey(childOf(loc, entry)) : undefined}
         <div
@@ -152,7 +161,7 @@
           onpointerdown={(e) => pointerdown(e, entry)}
           oncontextmenu={(e) => menu(e, entry)}
         >
-          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={iconSize} localPath={localPath(entry)} special={special(entry)} /></span>
+          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={mode === "compact" ? 22 : iconSize} localPath={mode === "compact" ? null : localPath(entry)} special={special(entry)} /></span>
           {@render name(entry)}
         </div>
       {/each}
@@ -161,9 +170,9 @@
     <table>
       <thead>
         <tr>
-          {#each [["name", "Name", "col-name"], ["modified", "Modified", ""], ["size", "Size", "num"]] as [key, label, cls] (key)}
+          {#each [["name", "Name", "col-name"], ["modified", "Modified", ""], ["type", "Type", ""], ["size", "Size", "num"]] as [key, label, cls] (key)}
             <th class={cls}>
-              <button type="button" class="sort" onclick={() => onSort(key as "name" | "size" | "modified")}>
+              <button type="button" class="sort" onclick={() => onSort(key as "name" | "size" | "modified" | "type")}>
                 {label}{#if sortKey === key}<span aria-hidden="true">{sortDescending ? " ▼" : " ▲"}</span>{/if}
               </button>
             </th>
@@ -185,6 +194,7 @@
           >
             <td class="col-name"><span class="row-name"><FileIcon name={entry.name} isDir={entry.isDir} size={20} special={special(entry)} />{@render name(entry)}</span></td>
             <td class="muted">{modified(entry.modTime)}</td>
+            <td class="muted">{entry.isDir ? "Folder" : typeLabel(entry.name)}</td>
             <td class="num muted">{entry.isDir ? "—" : formatBytes(entry.size)}</td>
           </tr>
         {/each}
@@ -206,6 +216,28 @@
   }
   .surface.drop {
     outline-color: var(--accent);
+  }
+  .grid.compact {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 2px 8px;
+  }
+  .grid.compact .tile {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 8px;
+    padding: 3px 8px;
+    text-align: left;
+    min-height: 0;
+  }
+  .grid.compact .tile :global(.name),
+  .grid.compact .tile :global(input) {
+    text-align: left;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .grid {
     display: grid;
