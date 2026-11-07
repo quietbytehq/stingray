@@ -144,7 +144,7 @@
 
 <aside class="sidebar" aria-label="Locations">
   <div class="brand">
-    <img src="/stingray.png" alt="" width="55" height="55" />
+    <img src="/stingray.png" alt="" width="36" height="36" />
     <span>Stingray</span>
     <button type="button" class="gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => onSettings()}>
       <Settings size={16} strokeWidth={1.75} aria-hidden="true" />

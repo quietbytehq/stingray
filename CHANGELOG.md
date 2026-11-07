@@ -10,6 +10,8 @@
 - Move to / Copy to now use Stingray's own picker, so cloud drives, servers and devices are
   destinations too, with recently used places and New Folder.
 - Compact view, and a Type column in the list view.
+- A progress window for copies, moves, uploads and downloads: progress, speed, time left and
+  cancel for each item; opens by itself and reopens from the toolbar's progress ring.
 - The tray menu no longer comes up empty on Ubuntu.
 
 ## 1.9.1 (unreleased)

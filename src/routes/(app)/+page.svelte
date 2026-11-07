@@ -27,7 +27,7 @@
   import SettingsDialog from "$lib/components/SettingsDialog.svelte";
   import { settings } from "$lib/stores/settings.svelte";
   import ErrorNote from "$lib/components/ErrorNote.svelte";
-  import TransferPanel from "$lib/components/TransferPanel.svelte";
+  import ProgressWindow from "$lib/components/ProgressWindow.svelte";
   import OpenWithDialog from "$lib/components/OpenWithDialog.svelte";
   import PropertiesDialog from "$lib/components/PropertiesDialog.svelte";
   import { viewPrefs, type SortKey } from "$lib/stores/viewPrefs.svelte";
@@ -666,6 +666,14 @@
   let showTerminal = $state(false);
   /** The information panel (F11). */
   let showInfo = $state(false);
+  /** The progress window for copies and moves; opens by itself when one starts. */
+  let showProgress = $state(false);
+  const progressRing = $derived.by(() => {
+    const act = transfers.active;
+    const total = act.reduce((t, i) => t + Math.max(i.totalBytes, 0), 0);
+    const done = act.reduce((t, i) => t + Math.max(i.bytes, 0), 0);
+    return { busy: act.length > 0, fraction: total > 0 ? Math.min(1, done / total) : 0 };
+  });
   const terminalCwd = $derived(loc.kind === "local" && !loc.path.includes("!/") ? loc.path : (home?.path ?? ""));
 
   async function compressItems(items: FileEntry[]) {
@@ -925,6 +933,14 @@
         <button type="button" class="tool" onclick={() => newTab()} title="New tab (Ctrl+T)" aria-label="New tab">
           <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
+        {#if transfers.items.length}
+          <button type="button" class="tool" onclick={() => (showProgress = !showProgress)} title="File operations" aria-label="File operations" aria-pressed={showProgress}>
+            <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <circle cx="10" cy="10" r="7.5" fill="none" stroke="var(--separator)" stroke-width="2.5" />
+              <circle cx="10" cy="10" r="7.5" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="{(progressRing.busy ? progressRing.fraction : 1) * 47.1} 47.1" transform="rotate(-90 10 10)" />
+            </svg>
+          </button>
+        {/if}
         <button type="button" class="tool" onclick={() => (showInfo = !showInfo)} title="Information (F11)" aria-label="Information" aria-pressed={showInfo}>
           <Info size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -1042,7 +1058,7 @@
       {#if refreshingSince}<span class="refreshing" role="status">Updating… (shown from {age(refreshingSince)})</span>{/if}
       {#if notice}<span class="notice" role="status">{notice}</span>{/if}
     </footer>
-    <TransferPanel />
+    <ProgressWindow bind:open={showProgress} />
   </section>
 </div>
 
