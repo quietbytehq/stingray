@@ -25,8 +25,8 @@
   let shellCwd = "";
 
   const THEMES = {
-    dark: { background: "#17141f", foreground: "#e8e4f0", cursor: "#b98bff", selectionBackground: "#8a3ffc55" },
-    light: { background: "#fbfaff", foreground: "#2a2633", cursor: "#8a3ffc", selectionBackground: "#8a3ffc33" },
+    dark: { background: "#17141f", foreground: "#e8e4f0", cursor: "#8f7bff", selectionBackground: "#6a4cff55" },
+    light: { background: "#fbfaff", foreground: "#2a2633", cursor: "#6a4cff", selectionBackground: "#6a4cff33" },
   };
 
   function decode(b64: string): Uint8Array {
