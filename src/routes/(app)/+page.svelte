@@ -38,6 +38,7 @@
   import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
   import BatchRenameDialog from "$lib/components/BatchRenameDialog.svelte";
   import SplitPane from "$lib/components/SplitPane.svelte";
+  import { age, cacheKey, getListing, putListing } from "$lib/stores/listingCache";
   import type { DefaultFm } from "$lib/api/types";
 
   // ---- Where we are -------------------------------------------------------------------------
@@ -315,10 +316,25 @@
 
   // ---- Loading ------------------------------------------------------------------------------
   let loadToken = 0;
+  /** Set while a cached cloud listing is shown and the fresh one is on its way. */
+  let refreshingSince = $state<number | null>(null);
+
   async function load() {
     const token = ++loadToken;
     loading = true;
     error = null;
+    refreshingSince = null;
+    // Cloud and network folders: show the remembered listing at once, then refresh it quietly.
+    let cached = null as Awaited<ReturnType<typeof getListing>>;
+    if (!virtualView && loc.kind === "remote") {
+      const here = loc;
+      cached = await getListing(cacheKey(here.remote, here.path));
+      if (token !== loadToken) return;
+      if (cached) {
+        entries = cached.entries;
+        refreshingSince = cached.at;
+      }
+    }
     try {
       const result = virtualView
         ? await virtualEntries(virtualView)
@@ -327,14 +343,43 @@
           : await api.listFiles(loc.remote, loc.path);
       if (token !== loadToken) return;
       entries = result;
-      if (loc.kind === "remote") drives.lights[loc.remote] = "connected";
+      if (loc.kind === "remote") {
+        drives.lights[loc.remote] = "connected";
+        void putListing(cacheKey(loc.remote, loc.path), result);
+      }
     } catch (err) {
       if (token !== loadToken) return;
-      entries = [];
-      error = asAppError(err);
-      if (loc.kind === "remote") drives.lights[loc.remote] = "offline";
+      if (cached) {
+        // Keep showing what we had; say how old it is instead of emptying the folder.
+        notice = `Couldn't reach ${rootLabel} right now. Showing files as they were ${age(cached.at)}.`;
+      } else {
+        entries = [];
+        error = asAppError(err);
+      }
+      if (loc.kind === "remote") drives.lights[loc.remote] = asAppError(err).kind === "timeout" ? "slow" : "offline";
     } finally {
-      if (token === loadToken) loading = false;
+      if (token === loadToken) {
+        loading = false;
+        refreshingSince = null;
+      }
+    }
+  }
+
+  async function warmCache() {
+    for (const remote of drives.remotes) {
+      try {
+        const top = await api.listFiles(remote.name, "");
+        await putListing(cacheKey(remote.name, ""), top);
+        for (const dir of top.filter((e) => e.isDir).slice(0, 12)) {
+          try {
+            await putListing(cacheKey(remote.name, dir.path), await api.listFiles(remote.name, dir.path));
+          } catch {
+            break; // Slow or offline: stop warming this drive.
+          }
+        }
+      } catch {
+        // Not connected; it will be cached when opened.
+      }
     }
   }
 
@@ -737,6 +782,8 @@
       if (given) await openGivenPath(given);
       else if (home) go({ kind: "local", path: home.path }, home.label, false);
       tabs = [snapshot()];
+      // Warm the cache: quietly list the top of each cloud drive and its first folders.
+      window.setTimeout(() => void warmCache(), 4000);
       // First start: offer to become the default file manager (once, unless postponed).
       let asked = false;
       try {
@@ -940,6 +987,7 @@
 
     <footer class="status">
       <span>{statusText}</span>
+      {#if refreshingSince}<span class="refreshing" role="status">Updating… (shown from {age(refreshingSince)})</span>{/if}
       {#if notice}<span class="notice" role="status">{notice}</span>{/if}
     </footer>
     <TransferPanel />
@@ -1247,6 +1295,10 @@
     flex-direction: column;
     min-width: 0;
     min-height: 0;
+  }
+  .refreshing {
+    color: var(--text-secondary);
+    font-style: italic;
   }
   .status {
     display: flex;

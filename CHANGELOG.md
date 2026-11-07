@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.9.1 (unreleased)
+
+- Cloud and network folders open instantly: Stingray remembers each folder's listing, shows it at
+  once and refreshes it in the background ("Updating…" in the status bar).
+- At start-up the top folders of each cloud drive are loaded quietly in the background.
+- When a cloud service is slow or offline, the remembered files stay on screen with a note
+  instead of an empty folder.
+
 ## 1.9.0 (unreleased)
 
 - Tabs: Ctrl+T new tab, Ctrl+W close, Ctrl+Shift+T reopen a closed tab, Ctrl+Tab / Alt+1–9 to

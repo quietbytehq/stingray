@@ -12,7 +12,7 @@ export type RcdState =
 export type OverallStatus = "synced" | "syncing" | "disconnected";
 
 /** Mirrors `error::ErrorKind`. */
-export type ErrorKind = "notRunning" | "rclone" | "invalidInput" | "io" | "unsupported" | "internal";
+export type ErrorKind = "notRunning" | "rclone" | "invalidInput" | "io" | "unsupported" | "internal" | "timeout";
 
 /**
  * Error shape returned by every command. Mirrors `error::AppError`. `message` is plain language;
