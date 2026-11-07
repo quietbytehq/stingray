@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.0.0 (unreleased)
+
+- New look: a new logo and app icon, a blue-violet accent, and a new opening scene drawn in vector
+  graphics (sharp at any size) with the name and slogan.
+- Terminal panel (F4): a real terminal that follows the folder you are in; `cd` in it moves the view.
+- Information panel (F11): large previews, video and audio that play in the panel, and details.
+- Folders panel (F7): a tree of every place, cloud drive, server and device.
+- Move to / Copy to now use Stingray's own picker, so cloud drives, servers and devices are
+  destinations too, with recently used places and New Folder.
+- Compact view, and a Type column in the list view.
+- The tray menu no longer comes up empty on Ubuntu.
+
 ## 1.9.1 (unreleased)
 
 - Cloud and network folders open instantly: Stingray remembers each folder's listing, shows it at
