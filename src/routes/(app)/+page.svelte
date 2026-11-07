@@ -31,13 +31,14 @@
   import OpenWithDialog from "$lib/components/OpenWithDialog.svelte";
   import PropertiesDialog from "$lib/components/PropertiesDialog.svelte";
   import { viewPrefs, type SortKey } from "$lib/stores/viewPrefs.svelte";
-  import { open as pickFolder } from "@tauri-apps/plugin-dialog";
   import type { Drive } from "$lib/api/types";
   import { formatBytes } from "$lib/util/format";
   import { listen } from "@tauri-apps/api/event";
   import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
   import BatchRenameDialog from "$lib/components/BatchRenameDialog.svelte";
   import SplitPane from "$lib/components/SplitPane.svelte";
+  import FolderPickerDialog from "$lib/components/FolderPickerDialog.svelte";
+  import FolderTree from "$lib/components/FolderTree.svelte";
   import { age, cacheKey, getListing, putListing } from "$lib/stores/listingCache";
   import type { DefaultFm } from "$lib/api/types";
 
@@ -650,12 +651,14 @@
     menu = { x: event.clientX, y: event.clientY, items };
   }
 
-  /** Move to… / Copy to…: pick a folder on this computer, then transfer there. */
-  async function sendTo(items: FileEntry[], move: boolean) {
-    const target = await pickFolder({ directory: true, multiple: false, title: move ? "Move to…" : "Copy to…" }).catch(() => null);
-    if (typeof target !== "string") return;
-    await transfer({ from: loc, entries: items }, { kind: "local", path: target }, !move, move);
+  /** Move to… / Copy to…: Stingray's own picker, so cloud, network and devices are destinations too. */
+  let sendPicker = $state<{ items: FileEntry[]; move: boolean; from: Location } | null>(null);
+  function sendTo(items: FileEntry[], move: boolean) {
+    sendPicker = { items, move, from: loc };
   }
+
+  /** The Folders panel (F7): a tree beside the file view. */
+  let showTree = $state(false);
 
   async function compressItems(items: FileEntry[]) {
     const suggested = items.length === 1 ? items[0].name.replace(/\.[^.]+$/, "") : "Archive";
@@ -748,6 +751,7 @@
     else if ((event.altKey && event.key === "ArrowUp") || event.key === "Backspace") goUp();
     else if (event.key === "Enter" && single) void open(single);
     else if (event.key === "F3") toggleSplit();
+    else if (event.key === "F7") showTree = !showTree;
     else if (ctrl && event.shiftKey && event.key.toLowerCase() === "t") reopenTab();
     else if (ctrl && !event.shiftKey && event.key.toLowerCase() === "t") newTab();
     else if (ctrl && event.key.toLowerCase() === "w") {
@@ -930,7 +934,16 @@
       <div class="banner"><ErrorNote {error} /></div>
     {/if}
 
-    <div class="panes" class:split>
+    <div class="panes" class:split class:tree={showTree}>
+      {#if showTree}
+        <aside class="tree-panel" aria-label="Folders">
+          <div class="tree-head">
+            <span>Folders</span>
+            <button type="button" class="tab-close" aria-label="Close Folders panel" title="Close (F7)" onclick={() => (showTree = false)}>×</button>
+          </div>
+          <FolderTree compact selected={loc} onSelect={(l, label) => go(l, label)} />
+        </aside>
+      {/if}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <div class="left" onpointerdown={() => (splitFocused = false)}>
     {#if loading && entries.length === 0}
@@ -1029,6 +1042,19 @@
       <p>Stingray's storage engine is still starting. Try again in a moment.</p>
     {/if}
   </Dialog>
+{/if}
+
+{#if sendPicker}
+  {@const job = sendPicker}
+  <FolderPickerDialog
+    title={`${job.move ? "Move" : "Copy"} ${job.items.length === 1 ? `“${job.items[0].name}”` : `${job.items.length} items`} to…`}
+    action={job.move ? "Move Here" : "Copy Here"}
+    onClose={() => (sendPicker = null)}
+    onPick={(to) => {
+      sendPicker = null;
+      void transfer({ from: job.from, entries: job.items }, to, !job.move, job.move);
+    }}
+  />
 {/if}
 
 {#if batchRename}
@@ -1289,6 +1315,27 @@
   }
   .panes.split {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .panes.tree {
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+  .panes.tree.split {
+    grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tree-panel {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    border-right: 1px solid var(--separator);
+  }
+  .tree-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--separator);
   }
   .left {
     display: flex;
