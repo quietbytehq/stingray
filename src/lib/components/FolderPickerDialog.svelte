@@ -104,7 +104,9 @@
 
 <style>
   .picker {
-    width: min(560px, 80vw);
+    width: min(520px, calc(100vw - 140px));
+    max-width: 100%;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     gap: 10px;
@@ -141,11 +143,13 @@
   }
   .footer {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     align-items: center;
     gap: 8px;
   }
   .path {
-    flex: 1;
+    flex: 1 1 100%;
     min-width: 0;
     font-size: 12px;
     color: var(--text-secondary);
