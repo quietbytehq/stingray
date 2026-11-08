@@ -19,20 +19,22 @@
   const done = $derived(active.reduce((t, i) => t + Math.max(i.bytes, 0), 0));
   const overall = $derived(total > 0 ? Math.min(1, done / total) : 0);
 
-  // Open when something starts; close a little after the last one ends.
-  let lastCount = 0;
+  // Open whenever an operation is added, even one that finishes at once (a quick copy or a move
+  // within the same drive), so every copy and move is confirmed; close a little after all are done.
+  let seen = 0;
   let closeTimer: number | undefined;
   $effect(() => {
-    const n = active.length;
-    if (n > lastCount) {
+    const newest = transfers.items.reduce((m, i) => Math.max(m, i.id), 0);
+    const running = active.length;
+    if (newest > seen) {
+      seen = newest;
       open = true;
-      window.clearTimeout(closeTimer);
     }
-    if (n === 0 && lastCount > 0) {
+    window.clearTimeout(closeTimer);
+    if (open && running === 0) {
       const failed = transfers.items.some((i) => i.state.state === "failed");
       if (!failed) closeTimer = window.setTimeout(() => (open = false), 4000);
     }
-    lastCount = n;
   });
 
   function fraction(item: TransferItem): number {
