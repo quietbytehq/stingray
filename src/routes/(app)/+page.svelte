@@ -1106,8 +1106,13 @@
     action={job.move ? "Move Here" : "Copy Here"}
     onClose={() => (sendPicker = null)}
     onPick={(to) => {
+      // Take what to copy before closing the picker: closing clears \`job\`.
+      const from = job.from;
+      const entries = [...job.items];
+      const move = job.move;
+      const target = { ...to };
       sendPicker = null;
-      void transfer({ from: job.from, entries: job.items }, to, !job.move, job.move);
+      void transfer({ from, entries }, target, !move, move);
     }}
   />
 {/if}
