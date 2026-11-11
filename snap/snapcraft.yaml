@@ -47,6 +47,12 @@ plugs:
     interface: personal-files
     write:
       - $HOME/.local/share/Trash
+  # The optional "Start at login" setting writes one stingray.desktop file here. Requested on the
+  # Snapcraft forum together with the Trash plug.
+  dot-config-autostart:
+    interface: personal-files
+    write:
+      - $HOME/.config/autostart
 
 apps:
   stingray:
@@ -61,6 +67,8 @@ apps:
       - removable-media
       - mount-observe
       - dot-local-share-trash
+      - dot-config-autostart
+      - udisks2
       - desktop
       - desktop-legacy
       - wayland
