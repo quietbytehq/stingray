@@ -17,7 +17,7 @@
     sameLocation,
     type Location,
   } from "$lib/util/location";
-  import { Plus, Columns2, SquareTerminal, Rows3, Info, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
+  import { Copy, Plus, Columns2, SquareTerminal, Rows3, Info, ArrowLeft, ArrowRight, ChevronRight, Eye, EyeOff, FolderPlus, LayoutGrid, List, RefreshCw, Search } from "$lib/icons";
   import Sidebar from "$lib/components/Sidebar.svelte";
   import FileView from "$lib/components/FileView.svelte";
   import ContextMenu, { type MenuItem } from "$lib/components/ContextMenu.svelte";
@@ -37,6 +37,7 @@
   import DefaultFmDialog from "$lib/components/DefaultFmDialog.svelte";
   import BatchRenameDialog from "$lib/components/BatchRenameDialog.svelte";
   import SplitPane from "$lib/components/SplitPane.svelte";
+  import CompressDialog from "$lib/components/CompressDialog.svelte";
   import FolderPickerDialog from "$lib/components/FolderPickerDialog.svelte";
   import FolderTree from "$lib/components/FolderTree.svelte";
   import TerminalPanel from "$lib/components/TerminalPanel.svelte";
@@ -76,6 +77,96 @@
   let openWithPath = $state<string | null>(null);
   let askDefault = $state<DefaultFm | null>(null);
   let batchRename = $state<FileEntry[] | null>(null);
+  let compressJob = $state<FileEntry[] | null>(null);
+
+  // ---- Editable path bar (click its empty space, or Ctrl+L) -----------------------------------
+  let editingPath = $state(false);
+  let pathText = $state("");
+  const fullPath = $derived(loc.kind === "local" ? loc.path : `${loc.remote}:${loc.path ? `/${loc.path}` : ""}`);
+
+  function editPath() {
+    pathText = fullPath;
+    editingPath = true;
+  }
+
+  async function copyFullPath() {
+    await navigator.clipboard.writeText(fullPath).catch(() => {});
+    notice = "Path copied.";
+  }
+
+  /** Goes to a typed path: "/home/…", "~/…", or "OneDrive:/Documents" for a cloud or network drive. */
+  function goTyped() {
+    let text = pathText.trim();
+    editingPath = false;
+    if (!text || text === fullPath) return;
+    const remote = drives.remotes.find((r) => text.startsWith(`${r.name}:`));
+    if (remote) {
+      go({ kind: "remote", remote: remote.name, path: text.slice(remote.name.length + 1).replace(/^\/+|\/+$/g, "") });
+      return;
+    }
+    if (text.startsWith("~") && home) text = home.path + text.slice(1);
+    void api
+      .fileProperties(text)
+      .then((info) => (info.isDir ? go({ kind: "local", path: text }) : void openGivenPath(text)))
+      .catch(() => (notice = `There's no folder at ${text}.`));
+  }
+
+  // ---- Trash, packages, permissions ------------------------------------------------------------
+  const trashPath = $derived(drives.places.find((p) => p.kind === "trash")?.path ?? null);
+  const inTrash = $derived(loc.kind === "local" && trashPath !== null && loc.path === trashPath);
+
+  async function emptyTrash() {
+    if (!window.confirm("Permanently delete everything in the Trash? This can't be undone.")) return;
+    try {
+      const n = await api.emptyTrash();
+      notice = n ? `Deleted ${n} ${n === 1 ? "item" : "items"} from the Trash.` : "The Trash was already empty.";
+      undoStack = undoStack.filter((step) => !step.label.includes("to the Trash"));
+      if (inTrash) await load();
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
+  async function install(entry: FileEntry) {
+    try {
+      const by = await api.installPackage(entry.path);
+      notice = `Opening ${entry.name} in ${by}…`;
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
+  /** Make Executable: adds "run" wherever "read" is allowed (like chmod +x for readers). */
+  async function makeExecutable(entry: FileEntry) {
+    try {
+      const info = await api.fileProperties(entry.path);
+      const p = info.permissions;
+      const mode = [0, 3, 6].reduce((m, o) => m * 8 + (p[o] !== "-" ? 4 : 0) + (p[o + 1] !== "-" ? 2 : 0) + (p[o] !== "-" || p[o + 2] !== "-" ? 1 : 0), 0);
+      await api.setPermissions(entry.path, mode);
+      notice = `${entry.name} can now be run.`;
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
+  async function createArchive(items: FileEntry[], name: string, format: "zip" | "7z", password: string | null) {
+    compressJob = null;
+    try {
+      const out = await api.compressArchive(items.map((e) => e.path), name, format, password);
+      notice = `Created ${baseName(out)}${password ? " (password protected)" : ""}.`;
+      await load();
+    } catch (err) {
+      error = asAppError(err);
+    }
+  }
+
+  /** The picture to preview at the bottom of the sidebar: one image on this computer, selected. */
+  const sidebarPreview = $derived.by(() => {
+    if (selectedEntries.length !== 1 || loc.kind !== "local") return null;
+    const e = selectedEntries[0];
+    if (e.isDir || e.path.includes("!/") || !/\.(png|jpe?g|gif|webp|bmp|svg|avif)$/i.test(e.name)) return null;
+    return { path: e.path, name: e.name };
+  });
 
   // ---- Tabs ----------------------------------------------------------------------------------
   /** Everything a tab remembers. The window shows one tab at a time; switching swaps these in. */
@@ -711,7 +802,9 @@
         action: () => clipboard && void transfer(clipboard.payload, childOf(loc, entry), !clipboard.cut, clipboard.cut),
         disabled: !clipboard || many || !entry.isDir,
       },
-      { label: "Compress…", action: () => void compressItems(items), disabled: !local || inArchive },
+      { label: "Compress…", action: () => (compressJob = items), disabled: !local || inArchive },
+      { label: "Install", action: () => void install(entry), disabled: many || !local || !/\.(deb|rpm)$/i.test(entry.name) },
+      { label: "Make Executable", action: () => void makeExecutable(entry), disabled: many || !local || entry.isDir || inArchive },
       { label: "Email…", action: () => void api.emailFiles(items.map((e) => e.path)).catch((err) => (error = asAppError(err))), disabled: !local || items.some((e) => e.isDir) },
       { label: starred ? "Remove from Starred" : "Star", action: () => { viewPrefs.toggleStar(items.map((e) => e.path)); if (virtualView === "starred") void load(); }, disabled: !local },
       { label: "Copy path", action: () => void copyPath(entry), disabled: many },
@@ -728,7 +821,8 @@
     showMenu(event, [
       { label: undoStack.length ? `Undo ${undoStack.at(-1)?.label}` : "Undo", action: () => void undo(), disabled: !undoStack.length },
       { label: redoStack.length ? `Redo ${redoStack.at(-1)?.label}` : "Redo", action: () => void redo(), disabled: !redoStack.length },
-      { label: "New folder", action: () => void newFolder(), disabled: virtualView !== null || inArchive, separator: true },
+      { label: "New folder", action: () => void newFolder(), disabled: virtualView !== null || inArchive || inTrash, separator: true },
+      ...(inTrash ? [{ label: "Empty Trash", action: () => void emptyTrash(), destructive: true }] : []),
       { label: "Paste", action: () => void paste(), disabled: !clipboard || virtualView !== null || inArchive },
       ...SORT_LABELS.map(([key, label], i) => ({
         label: tick(s.key === key, `Arrange by ${label}`),
@@ -766,7 +860,10 @@
     else if (event.altKey && event.key === "ArrowRight") goForward();
     else if ((event.altKey && event.key === "ArrowUp") || event.key === "Backspace") goUp();
     else if (event.key === "Enter" && single) void open(single);
-    else if (event.key === "F3") toggleSplit();
+    else if (ctrl && event.key.toLowerCase() === "l") {
+      event.preventDefault();
+      editPath();
+    } else if (event.key === "F3") toggleSplit();
     else if (event.key === "F7") showTree = !showTree;
     else if (event.key === "F4") showTerminal = !showTerminal;
     else if (event.key === "F11") {
@@ -882,6 +979,8 @@
     virtual={virtualView}
     onVirtual={showVirtual}
     onOpenDrive={(drive) => void openDrive(drive)}
+    preview={sidebarPreview}
+    onEmptyTrash={() => void emptyTrash()}
   />
 
   <section class="main">
@@ -914,13 +1013,38 @@
           <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
-      <nav class="trail" aria-label="Folder path">
-        {#each trail as crumb, i (i)}
-          {#if i > 0}<ChevronRight size={13} strokeWidth={2} aria-hidden="true" />{/if}
-          <button type="button" class="crumb" class:last={i === trail.length - 1} onclick={() => go(crumb.loc)}>{crumb.label}</button>
-        {/each}
-      </nav>
+      {#if editingPath}
+        <!-- svelte-ignore a11y_autofocus -->
+        <input
+          class="path-edit"
+          bind:value={pathText}
+          spellcheck="false"
+          autofocus
+          aria-label="Folder path"
+          onfocus={(e) => (e.currentTarget as HTMLInputElement).select()}
+          onblur={() => (editingPath = false)}
+          onkeydown={(e) => {
+            if (e.key === "Enter") goTyped();
+            else if (e.key === "Escape") editingPath = false;
+            e.stopPropagation();
+          }}
+        />
+      {:else}
+        <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+        <nav class="trail" aria-label="Folder path" title="Click empty space or press Ctrl+L to type or copy the path" onclick={(e) => { if (e.target === e.currentTarget) editPath(); }}>
+          {#each trail as crumb, i (i)}
+            {#if i > 0}<ChevronRight size={13} strokeWidth={2} aria-hidden="true" />{/if}
+            <button type="button" class="crumb" class:last={i === trail.length - 1} onclick={() => go(crumb.loc)}>{crumb.label}</button>
+          {/each}
+        </nav>
+      {/if}
+      <button type="button" class="tool" onclick={() => void copyFullPath()} title="Copy path" aria-label="Copy path">
+        <Copy size={15} strokeWidth={1.75} aria-hidden="true" />
+      </button>
       <div class="tools">
+        {#if inTrash}
+          <button type="button" class="button danger-soft" onclick={() => void emptyTrash()}>Empty Trash</button>
+        {/if}
         <button type="button" class="tool" onclick={() => void newFolder()} title="New folder (Ctrl+Shift+N)" aria-label="New folder">
           <FolderPlus size={16} strokeWidth={1.75} aria-hidden="true" />
         </button>
@@ -1114,6 +1238,16 @@
       sendPicker = null;
       void transfer({ from, entries }, target, !move, move);
     }}
+  />
+{/if}
+
+{#if compressJob}
+  {@const items = compressJob}
+  <CompressDialog
+    count={items.length}
+    suggested={items.length === 1 ? items[0].name.replace(/\.[^.]+$/, "") : "Archive"}
+    onClose={() => (compressJob = null)}
+    onCreate={(name, format, password) => void createArchive([...items], name, format, password)}
   />
 {/if}
 
@@ -1314,6 +1448,22 @@
   .empty p {
     margin: 0;
     max-width: 40ch;
+  }
+  .path-edit {
+    flex: 1;
+    min-width: 0;
+    padding: 5px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--accent);
+    background: var(--window-bg);
+    color: inherit;
+    font: inherit;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .danger-soft {
+    color: var(--status-offline);
+    border-color: var(--status-offline);
   }
   .tabs {
     display: flex;

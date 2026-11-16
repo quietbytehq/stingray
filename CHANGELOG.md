@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.2
+
+- Copyable path: click the path bar's empty space (or Ctrl+L) to type, paste or copy a path,
+  including cloud paths like "OneDrive:/Documents"; a Copy path button beside it.
+- Empty Trash: a button in the Trash, and on the Trash in the sidebar (right-click).
+- Install .deb and .rpm packages from the right-click menu, through App Center or the system installer.
+- Permissions: tick boxes in Properties (read, change, run for owner, group and others), and
+  Make Executable in the right-click menu.
+- Compress to .zip or .7z, optionally protected with a password (AES-256 encryption).
+- Selecting a picture shows a preview at the bottom of the sidebar.
+
 ## 2.0.0 (unreleased)
 
 - New look: a new logo and app icon, a blue-violet accent, and a new opening scene drawn in vector

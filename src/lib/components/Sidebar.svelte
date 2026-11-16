@@ -5,6 +5,7 @@
   import BrandIcon from "./BrandIcon.svelte";
   import FileIcon, { type SpecialFolder } from "./FileIcon.svelte";
   import { api } from "$lib/api";
+  import { convertFileSrc } from "@tauri-apps/api/core";
   import { viewPrefs } from "$lib/stores/viewPrefs.svelte";
   import type { Drive } from "$lib/api/types";
   import { drag, dropKey } from "$lib/stores/drag.svelte";
@@ -41,6 +42,8 @@
     virtual = null,
     onVirtual = () => {},
     onOpenDrive = () => {},
+    preview = null,
+    onEmptyTrash = () => {},
   }: {
     current: Location;
     onNavigate: (loc: Location, label: string) => void;
@@ -55,6 +58,9 @@
     onVirtual?: (view: "recent" | "starred") => void;
     /** Opens a drive from Devices, mounting it first if needed. */
     onOpenDrive?: (drive: Drive) => void;
+    /** A picture on this computer to preview at the bottom of the sidebar. */
+    preview?: { path: string; name: string } | null;
+    onEmptyTrash?: () => void;
   } = $props();
 
   const PLACE_ICONS: Record<Place["kind"], Component> = {
@@ -161,6 +167,7 @@
         class:current={!virtual && sameLocation(current, loc)}
         class:drop={drag.over === dropKey(loc)}
         data-drop={place.kind === "trash" ? undefined : dropKey(loc)}
+        oncontextmenu={place.kind === "trash" ? (e) => onMenu(e, [{ label: "Open", action: () => onNavigate(loc, place.label) }, { label: "Empty Trash", destructive: true, separator: true, action: onEmptyTrash }]) : undefined}
         onclick={() => onNavigate(loc, place.label)}
       >
         <span class="place-icon"><FileIcon name="" isDir={true} size={20} special={place.kind as SpecialFolder} /></span>
@@ -334,6 +341,12 @@
       <span class="label">Connect to server…</span>
     </button>
   </nav>
+  {#if preview}
+    <figure class="preview-card" title={preview.name}>
+      {#key preview.path}<img src={convertFileSrc(preview.path)} alt="" />{/key}
+      <figcaption>{preview.name}</figcaption>
+    </figure>
+  {/if}
 </aside>
 
 <style>
@@ -391,6 +404,34 @@
     width: 20px;
     height: 20px;
     flex: none;
+  }
+  .preview-card {
+    margin: 8px 10px 10px;
+    padding: 8px;
+    border-radius: 12px;
+    background: var(--control-bg);
+    flex: none;
+    animation: fade-in 0.15s ease-out;
+  }
+  .preview-card img {
+    display: block;
+    width: 100%;
+    max-height: 180px;
+    object-fit: contain;
+    border-radius: 8px;
+  }
+  .preview-card figcaption {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--text-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
   }
   .eject {
     margin-left: auto;

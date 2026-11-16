@@ -12,6 +12,7 @@ pub mod rclone;
 pub mod remotes;
 mod reveal;
 pub mod settings;
+pub mod ops;
 pub mod system;
 pub mod terminal;
 pub mod text;
@@ -194,6 +195,10 @@ pub fn run() {
             system::apps_for_file,
             system::open_with,
             system::compress,
+            ops::empty_trash,
+            ops::set_permissions,
+            ops::install_package,
+            ops::compress_archive,
             system::email_files,
             system::file_properties,
             system::recent_files,

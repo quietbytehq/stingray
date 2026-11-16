@@ -83,6 +83,11 @@ export const api = {
   fileProperties: (path: string) => invoke<FileProperties>("file_properties", { path }),
   recentFiles: () => invoke<RecentFile[]>("recent_files"),
   bootId: () => invoke<string>("boot_id"),
+  emptyTrash: () => invoke<number>("empty_trash"),
+  setPermissions: (path: string, mode: number) => invoke<void>("set_permissions", { path, mode }),
+  installPackage: (path: string) => invoke<string>("install_package", { path }),
+  compressArchive: (paths: string[], name: string, format: "zip" | "7z", password: string | null) =>
+    invoke<string>("compress_archive", { paths, name, format, password }),
   extractArchive: (path: string) => invoke<string>("extract_archive", { path }),
   openFromArchive: (path: string) => invoke<string>("open_from_archive", { path }),
   restoreFromTrash: (paths: string[]) => invoke<void>("restore_from_trash", { paths }),
