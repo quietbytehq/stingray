@@ -41,7 +41,10 @@
     border-radius: var(--radius-window);
     box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
     padding: 20px 22px 18px;
-    width: min(460px, 100%);
+    width: auto;
+    min-width: min(360px, 100%);
+    max-width: min(640px, 100%);
+    box-sizing: border-box;
     max-height: 80vh;
     display: flex;
     flex-direction: column;

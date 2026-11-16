@@ -84,7 +84,8 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: min(440px, calc(100vw - 140px));
+    width: 440px;
+    max-width: 100%;
   }
   label {
     display: flex;

@@ -104,7 +104,7 @@
 
 <style>
   .picker {
-    width: min(520px, calc(100vw - 140px));
+    width: 520px;
     max-width: 100%;
     box-sizing: border-box;
     display: flex;

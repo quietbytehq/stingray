@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.3
+
+- Dialogs size themselves to their content, so nothing is cut off at the right edge (Compress,
+  Copy to / Move to and others).
+
 ## 2.0.2
 
 - Copyable path: click the path bar's empty space (or Ctrl+L) to type, paste or copy a path,
