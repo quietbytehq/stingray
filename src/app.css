@@ -43,7 +43,7 @@
   --separator: rgba(60, 60, 67, 0.18);
   --text-primary: #1d1d1f;
   --text-secondary: #6e6e73;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06), 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06);
   --splash-ink: #1d1d1f;
   --splash-muted: rgba(29, 29, 31, 0.6);
   --splash-bg: radial-gradient(circle at 30% 25%, #ffffff 0%, #f1ecfb 60%, #e9e0f8 100%);
@@ -60,7 +60,7 @@
     --separator: rgba(84, 84, 88, 0.6);
     --text-primary: #f5f5f7;
     --text-secondary: #98989f;
-    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06);
     --splash-ink: #f5f5f7;
     --splash-muted: rgba(245, 245, 247, 0.6);
     --splash-bg: radial-gradient(circle at 30% 25%, #2b2140 0%, #17131f 70%, #110e17 100%);
@@ -77,7 +77,7 @@
   --separator: rgba(84, 84, 88, 0.6);
   --text-primary: #f5f5f7;
   --text-secondary: #98989f;
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px rgba(0, 0, 0, 0.3);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06);
   --splash-ink: #f5f5f7;
   --splash-muted: rgba(245, 245, 247, 0.6);
   --splash-bg: radial-gradient(circle at 30% 25%, #2b2140 0%, #17131f 70%, #110e17 100%);
@@ -177,7 +177,7 @@ progress {
   background: var(--control-bg-hover);
 }
 .button.primary {
-  background: var(--accent-gradient);
+  background: var(--accent);
   color: #fff;
 }
 .button.primary:hover {

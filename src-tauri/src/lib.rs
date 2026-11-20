@@ -77,6 +77,17 @@ pub fn run() {
             let args: Vec<String> = std::env::args().collect();
             let background = args.iter().any(|a| a == "--background");
             let mut splash_plan = settings.splash_plan(&app_version);
+            if !settings.show_intro {
+                splash_plan = settings::SplashPlan::Off;
+            }
+            // 2.1 makes icons larger overall: lift older, smaller choices once.
+            if !settings.icons_enlarged {
+                settings.icons_enlarged = true;
+                if settings.icon_size < 80 {
+                    settings.icon_size = 80;
+                }
+                let _ = settings::save(&paths.settings(), &settings);
+            }
             // The splash plays once per boot (and always after an update); later launches open at once.
             let boot = system::boot_id();
             if background

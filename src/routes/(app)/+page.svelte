@@ -40,7 +40,6 @@
   import CompressDialog from "$lib/components/CompressDialog.svelte";
   import FolderPickerDialog from "$lib/components/FolderPickerDialog.svelte";
   import FolderTree from "$lib/components/FolderTree.svelte";
-  import TerminalPanel from "$lib/components/TerminalPanel.svelte";
   import InfoPanel from "$lib/components/InfoPanel.svelte";
   import { iconThemes } from "$lib/stores/iconThemes.svelte";
   import { age, cacheKey, getListing, putListing } from "$lib/stores/listingCache";
@@ -465,7 +464,7 @@
       try {
         const top = await api.listFiles(remote.name, "");
         await putListing(cacheKey(remote.name, ""), top);
-        for (const dir of top.filter((e) => e.isDir).slice(0, 12)) {
+        for (const dir of top.filter((e) => e.isDir).slice(0, 6)) {
           try {
             await putListing(cacheKey(remote.name, dir.path), await api.listFiles(remote.name, dir.path));
           } catch {
@@ -1007,10 +1006,10 @@
     <header class="toolbar">
       <div class="nav">
         <button type="button" class="tool" onclick={goBack} disabled={back.length === 0} title="Back (Alt+Left)" aria-label="Back">
-          <ArrowLeft size={16} strokeWidth={1.75} aria-hidden="true" />
+          <ArrowLeft size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button type="button" class="tool" onclick={goForward} disabled={forward.length === 0} title="Forward (Alt+Right)" aria-label="Forward">
-          <ArrowRight size={16} strokeWidth={1.75} aria-hidden="true" />
+          <ArrowRight size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
       </div>
       {#if editingPath}
@@ -1039,23 +1038,23 @@
         </nav>
       {/if}
       <button type="button" class="tool" onclick={() => void copyFullPath()} title="Copy path" aria-label="Copy path">
-        <Copy size={15} strokeWidth={1.75} aria-hidden="true" />
+        <Copy size={18} strokeWidth={1.75} aria-hidden="true" />
       </button>
       <div class="tools">
         {#if inTrash}
           <button type="button" class="button danger-soft" onclick={() => void emptyTrash()}>Empty Trash</button>
         {/if}
         <button type="button" class="tool" onclick={() => void newFolder()} title="New folder (Ctrl+Shift+N)" aria-label="New folder">
-          <FolderPlus size={16} strokeWidth={1.75} aria-hidden="true" />
+          <FolderPlus size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button type="button" class="tool" onclick={() => (showHidden = !showHidden)} title={showHidden ? "Hide hidden files (Ctrl+H)" : "Show hidden files (Ctrl+H)"} aria-pressed={showHidden}>
-          {#if showHidden}<Eye size={16} strokeWidth={1.75} aria-hidden="true" />{:else}<EyeOff size={16} strokeWidth={1.75} aria-hidden="true" />{/if}
+          {#if showHidden}<Eye size={19} strokeWidth={1.75} aria-hidden="true" />{:else}<EyeOff size={19} strokeWidth={1.75} aria-hidden="true" />{/if}
         </button>
         <button type="button" class="tool" onclick={() => void load()} title="Refresh (F5)" aria-label="Refresh">
-          <RefreshCw size={16} strokeWidth={1.75} aria-hidden="true" class={loading ? "spin" : ""} />
+          <RefreshCw size={19} strokeWidth={1.75} aria-hidden="true" class={loading ? "spin" : ""} />
         </button>
         <button type="button" class="tool" onclick={() => newTab()} title="New tab (Ctrl+T)" aria-label="New tab">
-          <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+          <Plus size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         {#if transfers.items.length}
           <button type="button" class="tool" onclick={() => (showProgress = !showProgress)} title="File operations" aria-label="File operations" aria-pressed={showProgress}>
@@ -1066,23 +1065,23 @@
           </button>
         {/if}
         <button type="button" class="tool" onclick={() => (showInfo = !showInfo)} title="Information (F11)" aria-label="Information" aria-pressed={showInfo}>
-          <Info size={16} strokeWidth={1.75} aria-hidden="true" />
+          <Info size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button type="button" class="tool" onclick={() => (showTerminal = !showTerminal)} title="Terminal (F4)" aria-label="Terminal" aria-pressed={showTerminal}>
-          <SquareTerminal size={16} strokeWidth={1.75} aria-hidden="true" />
+          <SquareTerminal size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <button type="button" class="tool" onclick={toggleSplit} title="Split view (F3)" aria-label="Split view" aria-pressed={split}>
-          <Columns2 size={16} strokeWidth={1.75} aria-hidden="true" />
+          <Columns2 size={19} strokeWidth={1.75} aria-hidden="true" />
         </button>
         <div class="segmented" role="group" aria-label="View">
           <button type="button" aria-pressed={mode === "grid"} onclick={() => (mode = "grid")} title="Icons" aria-label="Icons">
-            <LayoutGrid size={15} strokeWidth={1.75} aria-hidden="true" />
+            <LayoutGrid size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button type="button" aria-pressed={mode === "compact"} onclick={() => (mode = "compact")} title="Compact" aria-label="Compact">
-            <Rows3 size={15} strokeWidth={1.75} aria-hidden="true" />
+            <Rows3 size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
           <button type="button" aria-pressed={mode === "list"} onclick={() => (mode = "list")} title="List" aria-label="List">
-            <List size={15} strokeWidth={1.75} aria-hidden="true" />
+            <List size={18} strokeWidth={1.75} aria-hidden="true" />
           </button>
         </div>
         <label class="search">
@@ -1167,6 +1166,7 @@
     </div>
 
     {#if showTerminal}
+      {#await import("$lib/components/TerminalPanel.svelte") then { default: TerminalPanel }}
       <TerminalPanel
         cwd={terminalCwd}
         dark={iconThemes.dark}
@@ -1175,6 +1175,7 @@
           if (loc.kind !== "local" || loc.path !== path) go({ kind: "local", path });
         }}
       />
+      {/await}
     {/if}
 
     <footer class="status">

@@ -24,6 +24,10 @@ pub struct Settings {
     pub start_on_login: bool,
     /// Closing the window keeps Stingray in the tray instead of quitting.
     pub keep_running: bool,
+    /// Play the opening animation at start-up (off by default since 2.1: Stingray opens at once).
+    pub show_intro: bool,
+    /// Set once the 2.1 icon-size increase has been applied to these settings.
+    pub icons_enlarged: bool,
     /// The boot the splash last played in; it plays once per boot.
     pub last_boot_id: Option<String>,
     /// Icon set for files and folders: "stingray", "fluent", "cupertino" or "outline".
@@ -116,9 +120,11 @@ impl Default for Settings {
             last_splash_version: None,
             start_on_login: false,
             keep_running: true,
+            show_intro: false,
+            icons_enlarged: true,
             last_boot_id: None,
             icon_theme: "stingray".into(),
-            icon_size: 56,
+            icon_size: 80,
             show_thumbnails: true,
             accounts: Default::default(),
         }
@@ -226,6 +232,8 @@ mod tests {
             last_splash_version: Some("0.2.0".into()),
             start_on_login: true,
             keep_running: false,
+            show_intro: true,
+            icons_enlarged: true,
             last_boot_id: Some("b1".into()),
             icon_theme: "outline".into(),
             icon_size: 96,

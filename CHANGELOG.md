@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.1.0
+
+- Opens straight to your files: the opening animation is off by default (it can be switched back
+  on in Settings → Appearance).
+- A new minimalist app icon: one white ray on a single blue-violet tile.
+- Larger icons throughout: files, list rows, compact view, sidebar and toolbar.
+- A lighter look: solid accent buttons, softer shadows.
+- Faster: the terminal loads only when opened, drives are checked less often, and less is
+  pre-loaded from cloud drives at start-up.
+
 ## 2.0.3
 
 - Dialogs size themselves to their content, so nothing is cut off at the right edge (Compress,

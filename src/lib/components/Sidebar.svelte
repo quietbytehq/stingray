@@ -94,7 +94,7 @@
   }
   $effect(() => {
     void refreshDisks();
-    const timer = window.setInterval(() => void refreshDisks(), 5000);
+    const timer = window.setInterval(() => void refreshDisks(), 15000);
     return () => window.clearInterval(timer);
   });
   async function eject(drive: Drive, event: MouseEvent) {
@@ -153,7 +153,7 @@
     <img src="/stingray.png" alt="" width="36" height="36" />
     <span>Stingray</span>
     <button type="button" class="gear" title="Settings (Ctrl+,)" aria-label="Settings" onclick={() => onSettings()}>
-      <Settings size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Settings size={20} strokeWidth={1.75} aria-hidden="true" />
     </button>
   </div>
 
@@ -170,16 +170,16 @@
         oncontextmenu={place.kind === "trash" ? (e) => onMenu(e, [{ label: "Open", action: () => onNavigate(loc, place.label) }, { label: "Empty Trash", destructive: true, separator: true, action: onEmptyTrash }]) : undefined}
         onclick={() => onNavigate(loc, place.label)}
       >
-        <span class="place-icon"><FileIcon name="" isDir={true} size={20} special={place.kind as SpecialFolder} /></span>
+        <span class="place-icon"><FileIcon name="" isDir={true} size={24} special={place.kind as SpecialFolder} /></span>
         <span class="label">{place.label}</span>
       </button>
     {/each}
     <button type="button" class="item" class:current={virtual === "recent"} onclick={() => onVirtual("recent")}>
-      <Clock size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Clock size={20} strokeWidth={1.75} aria-hidden="true" />
       <span class="label">Recent</span>
     </button>
     <button type="button" class="item" class:current={virtual === "starred"} onclick={() => onVirtual("starred")}>
-      <Star size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Star size={20} strokeWidth={1.75} aria-hidden="true" />
       <span class="label">Starred</span>
     </button>
 
@@ -211,7 +211,7 @@
               { label: "Remove from Places", destructive: true, separator: true, action: () => viewPrefs.removeBookmark(mark.path) },
             ])}
         >
-          <span class="place-icon"><FileIcon name="" isDir={true} size={20} /></span>
+          <span class="place-icon"><FileIcon name="" isDir={true} size={24} /></span>
           <span class="label">{mark.label}</span>
         </button>
       {/each}
@@ -230,7 +230,7 @@
           title={`${drive.device}${drive.filesystem ? ` · ${drive.filesystem}` : ""}${drive.mountPoint ? "" : " · not mounted"}`}
           onclick={() => onOpenDrive(drive)}
         >
-          <HardDrive size={16} strokeWidth={1.75} aria-hidden="true" />
+          <HardDrive size={20} strokeWidth={1.75} aria-hidden="true" />
           <span class="label">{drive.label}</span>
           {#if drive.mountPoint && (drive.removable || drive.mountPoint.startsWith("/media") || drive.mountPoint.startsWith("/run/media"))}
             <span class="eject" role="button" tabindex="-1" title={drive.removable ? "Eject" : "Unmount"} onclick={(e) => void eject(drive, e)} onkeydown={() => {}}>⏏</span>
@@ -289,9 +289,9 @@
       {@const loc = remoteLoc(remote)}
       <button type="button" class="item" class:current={isCurrentRemote(remote)} class:drop={drag.over === dropKey(loc)} data-drop={dropKey(loc)} onclick={() => onNavigate(loc, remote.name)} oncontextmenu={(e) => remoteMenu(e, remote)}>
         {#if remote.providerId === "sftp"}
-          <Terminal size={16} strokeWidth={1.75} aria-hidden="true" />
+          <Terminal size={20} strokeWidth={1.75} aria-hidden="true" />
         {:else}
-          <Network size={16} strokeWidth={1.75} aria-hidden="true" />
+          <Network size={20} strokeWidth={1.75} aria-hidden="true" />
         {/if}
         <span class="label">{remote.name}</span>
         {@render dot(drives.light(remote.name))}
@@ -331,13 +331,13 @@
             },
           ])}
       >
-        <Server size={16} strokeWidth={1.75} aria-hidden="true" />
+        <Server size={20} strokeWidth={1.75} aria-hidden="true" />
         <span class="label">{share.name}</span>
         {@render dot(share.connectedAt ? "connected" : "offline")}
       </button>
     {/each}
     <button type="button" class="item add" onclick={onConnectServer}>
-      <Plus size={16} strokeWidth={1.75} aria-hidden="true" />
+      <Plus size={20} strokeWidth={1.75} aria-hidden="true" />
       <span class="label">Connect to server…</span>
     </button>
   </nav>

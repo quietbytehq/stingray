@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Stingray 2.1 app icon: one flat colour, one white ray. -->
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="#5b4bff"/>
+  <g transform="translate(115 176) scale(3.2)">
+    <path fill="#ffffff" d="M10,95 C45,102 80,92 105,72 C140,45 180,20 205,-5 C200,40 188,72 162,100 C148,116 150,132 172,152 C195,172 222,196 240,215 C210,198 172,176 140,158 C110,140 70,130 35,118 C20,112 8,104 10,95 Z"/>
+  </g>
+</svg>

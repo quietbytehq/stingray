@@ -222,6 +222,8 @@ export interface Settings {
   showThumbnails: boolean;
   /** Closing the window keeps Stingray in the tray. */
   keepRunning: boolean;
+  showIntro: boolean;
+  iconsEnlarged: boolean;
   lastBootId: string | null;
   /** Your own label and badge colour per account, keyed by connection name. */
   accounts: Record<string, AccountLook>;

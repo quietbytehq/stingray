@@ -161,7 +161,7 @@
           onpointerdown={(e) => pointerdown(e, entry)}
           oncontextmenu={(e) => menu(e, entry)}
         >
-          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={mode === "compact" ? 22 : iconSize} localPath={mode === "compact" ? null : localPath(entry)} special={special(entry)} /></span>
+          <span class="icon"><FileIcon name={entry.name} isDir={entry.isDir} size={mode === "compact" ? 28 : iconSize} localPath={mode === "compact" ? null : localPath(entry)} special={special(entry)} /></span>
           {@render name(entry)}
         </div>
       {/each}
@@ -192,7 +192,7 @@
             onpointerdown={(e) => pointerdown(e, entry)}
             oncontextmenu={(e) => menu(e, entry)}
           >
-            <td class="col-name"><span class="row-name"><FileIcon name={entry.name} isDir={entry.isDir} size={20} special={special(entry)} />{@render name(entry)}</span></td>
+            <td class="col-name"><span class="row-name"><FileIcon name={entry.name} isDir={entry.isDir} size={26} special={special(entry)} />{@render name(entry)}</span></td>
             <td class="muted">{modified(entry.modTime)}</td>
             <td class="muted">{entry.isDir ? "Folder" : typeLabel(entry.name)}</td>
             <td class="num muted">{entry.isDir ? "—" : formatBytes(entry.size)}</td>

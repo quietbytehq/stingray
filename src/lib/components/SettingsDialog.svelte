@@ -378,6 +378,17 @@
           <label class="toggle">
             <input
               type="checkbox"
+              checked={settings.value?.showIntro ?? false}
+              onchange={(e) => void settings.patch({ showIntro: (e.currentTarget as HTMLInputElement).checked })}
+            />
+            <span>Play the opening animation when Stingray starts</span>
+          </label>
+          <p class="hint">Off by default, so Stingray opens straight to your files.</p>
+        </div>
+        <div class="field">
+          <label class="toggle">
+            <input
+              type="checkbox"
               checked={settings.value?.keepRunning ?? true}
               onchange={(e) => void settings.patch({ keepRunning: (e.currentTarget as HTMLInputElement).checked })}
             />
