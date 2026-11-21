@@ -92,6 +92,7 @@ export const api = {
   openFromArchive: (path: string) => invoke<string>("open_from_archive", { path }),
   restoreFromTrash: (paths: string[]) => invoke<void>("restore_from_trash", { paths }),
   takeInitialPath: () => invoke<string | null>("take_initial_path"),
+  missingSnapConnections: () => invoke<string[]>("missing_snap_connections"),
   setStartAtLogin: (enabled: boolean) => invoke<void>("set_start_at_login", { enabled }),
   defaultFileManager: () => invoke<DefaultFm>("default_file_manager"),
   setDefaultFileManager: (restore: boolean) => invoke<void>("set_default_file_manager", { restore }),

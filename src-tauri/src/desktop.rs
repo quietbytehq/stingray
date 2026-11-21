@@ -141,7 +141,30 @@ pub fn started_in_background(app: &AppHandle) -> bool {
 // ---- Start at login ------------------------------------------------------------------------
 
 fn autostart_file() -> Option<PathBuf> {
+    // Inside the snap, snapd's own autostart reads $SNAP_USER_DATA/.config/autostart, which the
+    // app can write without extra permissions (the `autostart:` key in snapcraft.yaml).
+    if let Some(data) = std::env::var_os("SNAP_USER_DATA") {
+        return Some(PathBuf::from(data).join(".config/autostart/stingray.desktop"));
+    }
     crate::localfs::real_home().map(|h| h.join(".config/autostart/stingray.desktop"))
+}
+
+/// Snap interfaces the user connects by hand that are not connected yet (empty outside the snap).
+#[tauri::command]
+pub fn missing_snap_connections() -> Vec<String> {
+    if std::env::var_os("SNAP").is_none() {
+        return Vec::new();
+    }
+    ["dot-local-share-trash", "udisks2"]
+        .into_iter()
+        .filter(|plug| {
+            !std::process::Command::new("snapctl")
+                .args(["is-connected", plug])
+                .status()
+                .is_ok_and(|s| s.success())
+        })
+        .map(String::from)
+        .collect()
 }
 
 /// Adds or removes Stingray from the desktop's start-at-login list (Linux).
@@ -152,7 +175,7 @@ pub fn set_start_at_login(enabled: bool) -> AppResult<()> {
         let _ = std::fs::remove_file(&file);
         return Ok(());
     }
-    let command = if std::env::var_os("SNAP").is_some() { "/snap/bin/stingray" } else { "stingray" };
+    let command = "stingray";
     let entry = format!(
         "[Desktop Entry]\nType=Application\nName=Stingray File Manager\nExec={command} --background\nIcon=stingray\nX-GNOME-Autostart-enabled=true\nNoDisplay=true\n"
     );

@@ -173,6 +173,7 @@ pub fn run() {
             commands::get_splash_plan,
             desktop::take_initial_path,
             desktop::set_start_at_login,
+            desktop::missing_snap_connections,
             commands::app_info,
             commands::get_settings,
             commands::save_settings,

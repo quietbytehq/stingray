@@ -6,7 +6,7 @@
 name: stingray
 title: Stingray File Manager
 base: core24
-version: "2.1.0"
+version: "2.1.1"
 summary: A modern file manager for your folders, cloud drives and servers
 description: |
   Stingray puts your folders, your cloud drives and your servers in one clean window.
@@ -41,23 +41,19 @@ slots:
     name: com.quietbyte.stingray.SingleInstance
 
 plugs:
-  # Move to Trash writes to ~/.local/share/Trash. This needs a store approval, requested on the
-  # Snapcraft forum; until then moving to Trash may fail inside the snap.
+  # Move to Trash writes to ~/.local/share/Trash. Store reviewers granted it as a manual
+  # connection; the app asks the user to run `snap connect stingray:dot-local-share-trash`.
   dot-local-share-trash:
     interface: personal-files
     write:
       - $HOME/.local/share/Trash
-  # The optional "Start at login" setting writes one stingray.desktop file here. Requested on the
-  # Snapcraft forum together with the Trash plug.
-  dot-config-autostart:
-    interface: personal-files
-    write:
-      - $HOME/.config/autostart
 
 apps:
   stingray:
     command: usr/bin/stingray
     desktop: usr/share/applications/stingray.desktop
+    # "Start at login" writes $SNAP_USER_DATA/.config/autostart/stingray.desktop; snapd starts it.
+    autostart: stingray.desktop
     extensions: [gnome]
     slots: [single-instance]
     plugs:
@@ -67,7 +63,6 @@ apps:
       - removable-media
       - mount-observe
       - dot-local-share-trash
-      - dot-config-autostart
       - udisks2
       - desktop
       - desktop-legacy
@@ -84,7 +79,7 @@ parts:
   stingray:
     plugin: dump
     # The .deb from `npm run bundle:linux` (or the stingray-linux-x86_64 CI artifact).
-    source: dist/stingray_2.1.0_amd64.deb
+    source: dist/stingray_2.1.1_amd64.deb
     source-type: deb
     stage-packages:
       - libwebkit2gtk-4.1-0

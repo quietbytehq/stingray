@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+
+- Snap: "Start at login" now uses the snap's own autostart, so it needs no extra permission.
+- Snap: if Move to Trash or mounting drives isn't connected yet, Stingray shows the one-line `snap connect` command to turn it on, with a Copy button.
+
 ## 2.1.0
 
 - Opens straight to your files: the opening animation is off by default (it can be switched back

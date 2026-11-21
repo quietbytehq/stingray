@@ -69,6 +69,17 @@
   });
   let error = $state<AppError | null>(null);
   let notice = $state<string | null>(null);
+  // Snap only: permissions the user connects by hand (Trash, drives) that are still off.
+  let missingPlugs = $state<string[]>([]);
+  const plugUse: Record<string, string> = { "dot-local-share-trash": "Move to Trash", udisks2: "mounting and ejecting drives" };
+  function hidePlugs() {
+    try {
+      localStorage.setItem("stingray.plugsHidden", missingPlugs.join(","));
+    } catch {
+      /* not saved */
+    }
+    missingPlugs = [];
+  }
 
   let mode = $state<"grid" | "list" | "compact">("grid");
   /** Recent and Starred are lists, not folders; while one is shown it replaces the folder listing. */
@@ -903,6 +914,14 @@
       if (given) await openGivenPath(given);
       else if (home) go({ kind: "local", path: home.path }, home.label, false);
       tabs = [snapshot()];
+      const plugs = await api.missingSnapConnections().catch(() => [] as string[]);
+      let hidden = "";
+      try {
+        hidden = localStorage.getItem("stingray.plugsHidden") ?? "";
+      } catch {
+        hidden = "";
+      }
+      if (plugs.length && plugs.join(",") !== hidden) missingPlugs = plugs;
       // Warm the cache: quietly list the top of each cloud drive and its first folders.
       window.setTimeout(() => void warmCache(), 4000);
       // First start: offer to become the default file manager (once, unless postponed).
@@ -1093,6 +1112,22 @@
 
     {#if error}
       <div class="banner"><ErrorNote {error} /></div>
+    {/if}
+    {#if missingPlugs.length}
+      <div class="banner">
+        <div class="plugs">
+          <p>To turn on {missingPlugs.map((p) => plugUse[p] ?? p).join(" and ")}, run this once in a terminal:</p>
+          <code>{missingPlugs.map((p) => `sudo snap connect stingray:${p}`).join(" && ")}</code>
+          <div class="plug-actions">
+            <button
+              onclick={() => {
+                void navigator.clipboard.writeText(missingPlugs.map((p) => `sudo snap connect stingray:${p}`).join(" && "));
+                notice = "Command copied.";
+              }}>Copy command</button>
+            <button onclick={hidePlugs}>Don't show again</button>
+          </div>
+        </div>
+      </div>
     {/if}
 
     <div
@@ -1418,6 +1453,25 @@
   }
   .banner {
     padding: 12px 16px 0;
+  }
+  .plugs {
+    border: 1px solid var(--border, rgba(127, 127, 127, 0.3));
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: grid;
+    gap: 8px;
+  }
+  .plugs p {
+    margin: 0;
+  }
+  .plugs code {
+    user-select: all;
+    font-size: 12px;
+    overflow-wrap: anywhere;
+  }
+  .plug-actions {
+    display: flex;
+    gap: 8px;
   }
   .empty {
     flex: 1;
